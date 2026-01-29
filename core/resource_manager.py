@@ -1,68 +1,59 @@
 import os
+import logging
 from PyQt6.QtGui import QPixmap, QPainter
 from PyQt6.QtCore import Qt, QSize
 from config.settings import Settings
 
+logger = logging.getLogger(__name__)
+
 class ResourceManager:
     _instance = None
-
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance.animations = {}
-            cls._instance.canvas_size = QSize(0, 0)
-            cls._instance.reference_height = 0 # Еталонна висота
+            cls._instance.ref_h = 0
         return cls._instance
 
     def load_all(self):
-        if not os.path.exists(Settings.ANIM_DIR): return
+        if not os.path.exists(Settings.ANIM_DIR):
+            logger.error(f"Animations directory missing: {Settings.ANIM_DIR}")
+            return
 
-        # 1. Знаходимо еталонну висоту (беремо з ходьби, як ви просили)
-        walk_ref_path = os.path.join(Settings.ANIM_DIR, "walk_right")
-        if os.path.exists(walk_ref_path):
-            files = [f for f in os.listdir(walk_ref_path) if f.lower().endswith('.png')]
-            if files:
-                ref_px = QPixmap(os.path.join(walk_ref_path, files[0]))
-                self.reference_height = ref_px.height()
-                print(f"Еталонна висота (з ходьби): {self.reference_height}px")
+        self.ref_h = self._determine_reference_height()
+        canvas_size = QSize(self.ref_h + 60, self.ref_h + 60)
 
-        # 2. Визначаємо розмір полотна (трохи більше за еталон)
-        # Навіть якщо інші картинки були великі, ми їх зменшимо до reference_height
-        self.canvas_size = QSize(self.reference_height + 50, self.reference_height + 50)
-
-        # 3. Завантажуємо та масштабуємо всі анімації
-        for folder_name in os.listdir(Settings.ANIM_DIR):
-            folder_path = os.path.join(Settings.ANIM_DIR, folder_name)
-            if os.path.isdir(folder_path):
-                frames = []
-                file_list = sorted([f for f in os.listdir(folder_path) if f.lower().endswith('.png')])
-                
-                for f in file_list:
-                    raw_px = QPixmap(os.path.join(folder_path, f))
-                    if raw_px.isNull(): continue
-                    
-                    # МАСШТАБУВАННЯ: Підганяємо картинку під еталонну висоту
-                    # SmoothTransformation забезпечує високу якість (немає "пікселів")
-                    scaled_px = raw_px.scaledToHeight(
-                        self.reference_height, 
-                        Qt.TransformationMode.SmoothTransformation
-                    )
-                    
-                    # Малюємо на прозорому полотні (вирівнювання по низу)
-                    canvas = QPixmap(self.canvas_size)
-                    canvas.fill(Qt.GlobalColor.transparent)
-                    
-                    painter = QPainter(canvas)
-                    x = (self.canvas_size.width() - scaled_px.width()) // 2
-                    y = self.canvas_size.height() - scaled_px.height()
-                    painter.drawPixmap(x, y, scaled_px)
-                    painter.end()
-                    
-                    frames.append(canvas)
-                
+        for folder in os.listdir(Settings.ANIM_DIR):
+            path = os.path.join(Settings.ANIM_DIR, folder)
+            if os.path.isdir(path):
+                frames = self._load_folder(path, canvas_size)
                 if frames:
-                    self.animations[folder_name] = frames
-                    print(f"Оптимізовано стан: {folder_name}")
+                    self.animations[folder] = frames
+                    logger.info(f"Loaded: {folder} ({len(frames)} frames)")
 
-    def get_frames(self, state_name):
-        return self.animations.get(state_name, [])
+    def _determine_reference_height(self):
+        walk_path = os.path.join(Settings.ANIM_DIR, "walk_right")
+        check_list = [walk_path] + [os.path.join(Settings.ANIM_DIR, d) for d in os.listdir(Settings.ANIM_DIR)]
+        for path in check_list:
+            if os.path.exists(path) and os.path.isdir(path):
+                for f in os.listdir(path):
+                    if f.lower().endswith('.png'):
+                        px = QPixmap(os.path.join(path, f))
+                        if not px.isNull(): return px.height()
+        return Settings.DEFAULT_SPRITE_HEIGHT
+
+    def _load_folder(self, path, canvas_size):
+        frames = []
+        for f in sorted([file for file in os.listdir(path) if file.lower().endswith('.png')]):
+            raw = QPixmap(os.path.join(path, f))
+            if raw.isNull(): continue
+            scaled = raw.scaledToHeight(self.ref_h, Qt.TransformationMode.SmoothTransformation)
+            canvas = QPixmap(canvas_size)
+            canvas.fill(Qt.GlobalColor.transparent)
+            painter = QPainter(canvas)
+            painter.drawPixmap((canvas_size.width()-scaled.width())//2, canvas_size.height()-scaled.height(), scaled)
+            painter.end()
+            frames.append(canvas)
+        return frames
+
+    def get_frames(self, state): return self.animations.get(state, [])

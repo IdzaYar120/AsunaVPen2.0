@@ -1,11 +1,11 @@
 from PyQt6.QtWidgets import QWidget, QLabel, QGridLayout, QVBoxLayout, QPushButton, QHBoxLayout
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QPixmap
+from PyQt6.QtCore import Qt, QPoint
+from PyQt6.QtGui import QPixmap, QImage
 import os
 from config.settings import Settings
 
 class ShopItem(QWidget):
-    def __init__(self, item_id, price, on_buy_callback):
+    def __init__(self, item_id, price, level, on_buy_callback):
         super().__init__()
         # ФІКС: Фіксований розмір картки товару
         self.setFixedSize(80, 100)
@@ -13,20 +13,39 @@ class ShopItem(QWidget):
         layout.setContentsMargins(2, 2, 2, 2)
         layout.setSpacing(2)
         
+        # Перевірка блокування
+        req_level = Settings.SHOP_UNLOCKS.get(item_id, 1)
+        is_locked = level < req_level
+        
         path = os.path.join(Settings.ICONS_DIR, f"{item_id}.png")
         icon = QLabel()
         if os.path.exists(path):
-            icon.setPixmap(QPixmap(path).scaled(40, 40, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+            pix = QPixmap(path).scaled(40, 40, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            if is_locked:
+                # Ефект сірого
+                img = pix.toImage()
+                img.convertTo(QImage.Format.Format_Grayscale8)
+                pix = QPixmap.fromImage(img)
+                pix.setDevicePixelRatio(2.0) # Для чіткості
+            icon.setPixmap(pix)
         icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
-        info = QLabel(f"{item_id.replace('-', ' ').title()}\n💰 {price}")
+        info_text = f"{item_id.replace('-', ' ').title()}\n💰 {price}"
+        if is_locked: info_text = f"Lvl {req_level}\n🔒"
+        
+        info = QLabel(info_text)
         info.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        info.setStyleSheet("color: white; font-size: 9px; font-weight: bold; border: none;")
+        info.setStyleSheet(f"color: {'#888' if is_locked else 'white'}; font-size: 9px; font-weight: bold; border: none;")
         
         btn = QPushButton("Купити")
         btn.setFixedSize(70, 20)
-        btn.setStyleSheet("background: #2E7D32; color: white; border-radius: 4px; font-size: 10px;")
-        btn.clicked.connect(lambda: on_buy_callback(item_id, price))
+        if is_locked:
+            btn.setText(f"Lvl {req_level}")
+            btn.setEnabled(False)
+            btn.setStyleSheet("background: #555; color: #AAA; border-radius: 4px; font-size: 10px;")
+        else:
+            btn.setStyleSheet("background: #2E7D32; color: white; border-radius: 4px; font-size: 10px;")
+            btn.clicked.connect(lambda: on_buy_callback(item_id, price))
         
         layout.addWidget(icon)
         layout.addWidget(info)
@@ -38,6 +57,7 @@ class ShopWindow(QWidget):
         self.engine = engine
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.drag_pos = None
         
         container = QWidget(self)
         container.setStyleSheet("background: rgba(30, 30, 30, 245); border: 2px solid #FFD700; border-radius: 12px;")
@@ -69,7 +89,17 @@ class ShopWindow(QWidget):
         while self.grid.count():
             w = self.grid.takeAt(0).widget()
             if w: w.deleteLater()
-        self.balance.setText(f"💰 {int(self.engine.stats.data['money'])}")
+        self.balance.setText(f"💰 {int(self.engine.stats.data['money'])} (Lvl {self.engine.stats.data['level']})")
         for idx, (i_id, price) in enumerate(Settings.SHOP_PRICES.items()):
-            self.grid.addWidget(ShopItem(i_id, price, self.engine.buy_item), idx//4, idx%4)
+            self.grid.addWidget(ShopItem(i_id, price, self.engine.stats.data['level'], self.engine.buy_item), idx//4, idx%4)
         self.adjustSize()
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+            event.accept()
+
+    def mouseMoveEvent(self, event):
+        if event.buttons() == Qt.MouseButton.LeftButton and self.drag_pos:
+            self.move(event.globalPosition().toPoint() - self.drag_pos)
+            event.accept()

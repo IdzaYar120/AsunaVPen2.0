@@ -1,6 +1,7 @@
 import random, time, logging
 from PyQt6.QtCore import QTimer, QObject, QCoreApplication
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtWidgets import QApplication, QFileDialog
+from PyQt6.QtMultimedia import QMediaPlayer
 from core.resource_manager import ResourceManager
 from core.stats_manager import StatsManager
 from core.task_manager import TaskManager
@@ -16,7 +17,10 @@ from ui.shop import ShopWindow
 from ui.inventory import InventoryWindow
 from ui.inventory import InventoryWindow
 from ui.achievements import AchievementWindow
+from ui.achievements import AchievementWindow
 from core.ai_client import AIClient
+from core.music_player import MusicPlayer
+from PyQt6.QtWidgets import QFileDialog
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +36,8 @@ class PetEngine(QObject):
         self.ai = AIClient()
         if self.stats.data.get("gemini_api_key"):
             self.ai.init_ai(self.stats.data["gemini_api_key"])
+            
+        self.music_player = MusicPlayer()
         
         # States and Animation
         self.current_state, self.direction, self.frame_index = "idle", 1, 0
@@ -42,6 +48,7 @@ class PetEngine(QObject):
         self.is_emotion_locked = False
         self.inv_win, self.shop_win, self.todo_win, self.minigame_win, self.slots_win, self.chat_win = None, None, None, None, None, None
         self.ach_win = None # Initialize AchievementWindow
+        self.music_widget = None
         self.last_window_title = ""
         self.last_window_check = 0
         self.last_window_reaction_time = 0
@@ -103,12 +110,32 @@ class PetEngine(QObject):
         if now - self.last_anim_time > Settings.ANIMATION_SPEED:
             self.update_animation(); self.last_anim_time = now
             
+        # Sync Music Widget
+        if self.music_widget and self.music_widget.isVisible():
+            self.music_widget.update_position(self.window.x(), self.window.y(), self.window.width(), self.window.height())
+            
         self.handle_energy_logic()
 
     def trigger_emotion(self, state, duration):
-        """Trigger an emotion for a specific duration."""
-        self.is_emotion_locked = True
+        # Special Logic for Dance (Music Reaction) - Support for Sing/Dance + Rewards
+        if state == "dance":
+             options = []
+             if self.res.get_frames("dance"): options.append("dance")
+             if self.res.get_frames("sing"): options.append("sing")
+             
+             if options:
+                 state = random.choice(options)
+                 # Rewards & Visuals
+                 reward = Settings.DANCE_XP_REWARD
+                 self.stats.add_xp(reward)
+                 self.window.create_floating_text(f"+{reward} XP", "#00FF00")
+                 particle = "✨" if state == "dance" else "🎵"
+                 p_color = "#FFD700" if state == "dance" else "#00BFFF"
+                 self.window.spawn_particles(particle, 8, p_color)
+                 
+        if self.is_emotion_locked: return
         self.set_state(state)
+        self.is_emotion_locked = True
         QTimer.singleShot(duration, self.release_emotion)
 
     def release_emotion(self):
@@ -264,6 +291,14 @@ class PetEngine(QObject):
 
     def think(self):
         if self.window.is_dragging or self.is_emotion_locked or self.current_state in ["sleep", "tired", "working", "sad"]: return
+        
+        # Chance to Dance if Music is Playing
+        # Chance to Dance/Sing if Music is Playing
+        if self.music_player and self.music_player.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
+             if random.random() < 0.4: # 40% chance every 5s
+                 self.trigger_emotion("dance", 5000) # Logic handled in trigger_emotion
+                 return
+
         if random.random() < 0.3:
             self.set_state("walk"); self.direction = random.choice([1, -1])
         else: self.set_state("idle")
@@ -560,3 +595,47 @@ class PetEngine(QObject):
             self.chat_win.move(self.window.x() + 200, self.window.y())
         else:
             self.chat_win.hide()
+            
+    # Music Player Integration
+    def select_music_folder(self):
+        folder = QFileDialog.getExistingDirectory(self.window, "Виберіть папку з музикою")
+        if folder:
+            count = self.music_player.set_folder(folder)
+            if count > 0:
+                self.talk_text(f"О, знайшла {count} треків! 🎵 Вмикаю!")
+                self.window.create_floating_text(f"Playing: {count} songs", "#00FFFF")
+                self.trigger_emotion("excited", 3000)
+                self.window.show_emote("happy")
+                
+                # Show Widget
+                from ui.music_widget import MusicWidget
+                if not self.music_widget: self.music_widget = MusicWidget(self)
+                self.music_widget = MusicWidget(self)
+                self.music_widget.show()
+                self.music_widget.update_position(self.window.x(), self.window.y(), self.window.width(), self.window.height())
+            else:
+                self.talk_text("Тут пусто... або файли не ті. 😕")
+                
+    def toggle_music(self):
+        self.music_player.toggle_pause()
+        state = "Paused" if self.music_player.player.playbackState() != 1 else "Playing" # 1=Playing
+        self.window.create_floating_text(f"Music: {state}", "#00FFFF")
+        if state == "Playing":
+            self.window.show_emote("happy")
+            
+    def music_next(self):
+        self.music_player.next_track()
+        self.window.create_floating_text("Next Track ⏭️", "#00FFFF")
+        
+    def music_prev(self):
+        self.music_player.prev_track()
+        self.window.create_floating_text("Prev Track ⏮️", "#00FFFF")
+        
+    def music_stop(self):
+        self.music_player.stop()
+        self.window.create_floating_text("Music Stopped ⏹️", "#555")
+        if self.music_widget: self.music_widget.hide()
+        
+    def music_volume(self, vol):
+        self.music_player.set_volume(vol)
+        self.window.create_floating_text(f"Volume: {vol}%", "#00FFFF")

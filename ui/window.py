@@ -367,6 +367,16 @@ class PetWindow(QWidget):
             menu.addAction("🏆  Досягнення").triggered.connect(self.engine.open_achievements)
             menu.addAction("🗣️  Чат (AI)").triggered.connect(self.engine.open_chat)
             
+            # Music Submenu
+            music_menu = menu.addMenu("🎵  Музика")
+            music_menu.addAction("📂  Вибрати папку").triggered.connect(self.engine.select_music_folder)
+            
+            vol_menu = music_menu.addMenu("🔈  Гучність")
+            vol_menu.addAction("25%").triggered.connect(lambda: self.engine.music_volume(25))
+            vol_menu.addAction("50%").triggered.connect(lambda: self.engine.music_volume(50))
+            vol_menu.addAction("75%").triggered.connect(lambda: self.engine.music_volume(75))
+            vol_menu.addAction("100%").triggered.connect(lambda: self.engine.music_volume(100))
+            
             # Games Submenu
             games_menu = menu.addMenu("🎮  Міні-ігри")
             games_menu.setStyleSheet(menu.styleSheet())
@@ -409,6 +419,22 @@ class PetWindow(QWidget):
         if not hasattr(self, 'active_texts'): self.active_texts = []
         self.active_texts.append(ft)
         ft.destroyed.connect(lambda: self.active_texts.remove(ft) if ft in self.active_texts else None)
+
+    def spawn_particles(self, symbol, count, color="#FFD700"):
+        g_pos = self.mapToGlobal(QPoint(0, 0))
+        center_x = g_pos.x() + self.width() // 2
+        center_y = g_pos.y() + self.header_spacing + 50
+        
+        for _ in range(count):
+            # Random position around center
+            off_x = random.randint(-60, 60)
+            off_y = random.randint(-60, 60)
+            
+            ft = FloatingText(symbol, color, QPoint(center_x + off_x, center_y + off_y), None)
+            
+            if not hasattr(self, 'active_texts'): self.active_texts = []
+            self.active_texts.append(ft)
+            ft.destroyed.connect(lambda: self.active_texts.remove(ft) if ft in self.active_texts else None)
 
     def show_achievement_popup(self, name, icon_name):
         # Use new class for flying toast window

@@ -77,7 +77,7 @@ WINDOW_KEYWORDS = {
     "lol": ["league of legends", "client", "riot"],
     "tft": ["teamfight tactics", "tft"],
     "hs": ["hearthstone", "battle.net"],
-    "music": ["spotify", "music", "player", "amp"]
+    "music": ["spotify", "music", "player", "amp", "vlc", "aimp", "media", "soundcloud", "deezer", "youtube music", "itunes"]
 }
 
 WINDOW_REACTIONS = {
@@ -115,6 +115,6 @@ WINDOW_REACTIONS = {
     },
     "music": {
         "text": ["Гарна пісня!", "Зроби гучніше!", "Можна потанцювати?", "Це мій улюблений трек!"],
-        "anim": "excited"
+        "anim": "dance"
     }
 }

@@ -56,8 +56,10 @@ class Settings:
         "nuts": 5, "pomegranate": 6, "dragon-fruit": 9, "pumpkin": 12,
 
         # Toys & Gifts
-        "ball": 30, "medicine": 50, "joystick": 60,
-        "flowers": 25, "teddy-bear": 55, "sword-gift": 100, "crown": 250
+        "ball": 30, "medicine": 50, "joystick": 60, "book": 30,
+        "flowers": 25, "teddy-bear": 55, "sword-gift": 100, "crown": 250,
+        "headphones": 150, "gem": 200, "magic-wand": 300, 
+        "love-potion": 150, "smartphone": 500
     }
     
     FOOD_STATS = {
@@ -77,21 +79,25 @@ class Settings:
         "dragon-fruit": (2, 3), "pumpkin": (3, 6)
     }
     
-    GIFT_STATS = {"flowers": 25, "teddy-bear": 50, "sword-gift": 80, "crown": 100}
+    GIFT_STATS = {
+        "flowers": 25, "teddy-bear": 50, "sword-gift": 80, "crown": 100,
+        "book": 20, "headphones": 40, "gem": 50, "magic-wand": 60,
+        "love-potion": 100, "smartphone": 75
+    }
     
     SHOP_UNLOCKS = {
         # Level 1
-        "blueberry": 1, "apple": 1, "tomato": 1, "banana": 1, "sandwich": 1, "ball": 1, "medicine": 1,
+        "blueberry": 1, "apple": 1, "tomato": 1, "banana": 1, "sandwich": 1, "ball": 1, "medicine": 1, "book": 1,
         # Level 2
         "cucumber": 2, "nuts": 2, "hot-dog": 2, "rice": 2, "salad": 2, "lollipop": 2, "donut": 2,
         # Level 3
-        "pomegranate": 3, "pumpkin": 3, "fried-potatoes": 3, "toffee": 3, "croissant": 3,
+        "pomegranate": 3, "pumpkin": 3, "fried-potatoes": 3, "toffee": 3, "croissant": 3, "headphones": 3,
         # Level 4
         "dragon-fruit": 4, "sushi": 4, "pasta": 4, "gummy-bear": 4,
         # Level 5
-        "pizza": 5, "ramen": 5, "chocolate": 5, "candy-apple": 5, "teddy-bear": 5,
+        "pizza": 5, "ramen": 5, "chocolate": 5, "candy-apple": 5, "teddy-bear": 5, "gem": 5,
         # High Level
-        "joystick": 7, "sword-gift": 10, "crown": 15
+        "joystick": 7, "magic-wand": 7, "love-potion": 8, "sword-gift": 10, "smartphone": 10, "crown": 15
     }
     
     ACHIEVEMENTS = {

@@ -5,19 +5,23 @@ import os
 from config.settings import Settings
 
 class ShopItem(QWidget):
-    def __init__(self, item_id, price, level, on_buy_callback):
+    def __init__(self, item_id, price, level, money, on_buy_callback):
         super().__init__()
-        self.setFixedSize(85, 110)
+        self.setFixedSize(90, 115) # Slightly larger to prevent clipping
+        
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(2, 2, 2, 2) # Add margin so border doesn't clip
+        main_layout.setSpacing(0)
         
         # Determine Color Border based on rarity/type
         border_col = "#555"
         if item_id in Settings.GIFT_STATS: border_col = "#FF69B4" # Pink for gifts
         elif item_id in Settings.HEALTH_FOOD_STATS: border_col = "#4CAF50" # Green for health
         
-        container = QFrame(self)
-        container.setGeometry(0, 0, 85, 110)
+        container = QFrame()
+        container.setObjectName("itemContainer")
         container.setStyleSheet(f"""
-            QFrame {{
+            QFrame#itemContainer {{
                 background: rgba(40, 40, 40, 200);
                 border: 1px solid {border_col};
                 border-radius: 8px;
@@ -32,6 +36,7 @@ class ShopItem(QWidget):
         # Check lock
         req_level = Settings.SHOP_UNLOCKS.get(item_id, 1)
         is_locked = level < req_level
+        can_afford = money >= price
         
         # Icon
         path = os.path.join(Settings.ICONS_DIR, f"{item_id}.png")
@@ -67,11 +72,17 @@ class ShopItem(QWidget):
             btn.setEnabled(False)
             btn.setStyleSheet("background: #444; color: #888; border-radius: 4px; border:none; font-size: 9px;")
         else:
-            btn.setStyleSheet("background: #2E7D32; color: white; border-radius: 4px; border:none; font-size: 10px; font-weight: bold;")
-            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            if can_afford:
+                btn.setStyleSheet("background: #2E7D32; color: white; border-radius: 4px; border:none; font-size: 10px; font-weight: bold;")
+                btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            else:
+                btn.setStyleSheet("background: #C62828; color: #DDD; border-radius: 4px; border:none; font-size: 10px; font-weight: bold;")
+                btn.setCursor(Qt.CursorShape.PointingHandCursor)
+                
             btn.clicked.connect(lambda: on_buy_callback(item_id, price))
             
         layout.addWidget(btn)
+        main_layout.addWidget(container)
 
 class ShopWindow(QWidget):
     def __init__(self, engine):
@@ -83,8 +94,8 @@ class ShopWindow(QWidget):
         
         # Main Container
         self.container = QWidget(self)
-        self.container.setFixedSize(400, 350)
-        self.setFixedSize(400, 350)
+        self.container.setFixedSize(450, 350) # Increased width
+        self.setFixedSize(450, 350)
         self.container.setStyleSheet("""
             QWidget { background: #1E1E24; border: 1px solid #FFD700; border-radius: 10px; color: white; }
             QTabWidget::pane { border: none; }
@@ -159,8 +170,8 @@ class ShopWindow(QWidget):
             grid.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
             
             for i, (item_id, price) in enumerate(items):
-                item_widget = ShopItem(item_id, price, self.engine.stats.data['level'], self.engine.buy_item)
-                grid.addWidget(item_widget, i // 3, i % 3)
+                item_widget = ShopItem(item_id, price, self.engine.stats.data['level'], self.engine.stats.data['money'], self.engine.buy_item)
+                grid.addWidget(item_widget, i // 4, i % 4) # 4 columns
                 
             scroll.setWidget(page)
             self.tabs.addTab(scroll, cat_name)

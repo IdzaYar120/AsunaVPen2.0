@@ -23,6 +23,7 @@ class StatsManager:
                 if "achievements" not in data: data["achievements"] = []
                 if "games_played" not in data: data["games_played"] = 0
                 if "minutes_worked" not in data: data["minutes_worked"] = 0
+                if "gemini_api_key" not in data: data["gemini_api_key"] = ""
                 return data
         except: return default
 

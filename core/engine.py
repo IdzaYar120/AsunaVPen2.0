@@ -14,7 +14,9 @@ from ui.slots import SlotsWindow
 from ui.todo_list import TodoWindow
 from ui.shop import ShopWindow
 from ui.inventory import InventoryWindow
+from ui.inventory import InventoryWindow
 from ui.achievements import AchievementWindow
+from core.ai_client import AIClient
 
 logger = logging.getLogger(__name__)
 
@@ -27,11 +29,18 @@ class PetEngine(QObject):
         self.task_manager = TaskManager(self.stats)
         self.sound = SoundManager()
         
+        self.ai = AIClient()
+        if self.stats.data.get("gemini_api_key"):
+            self.ai.init_ai(self.stats.data["gemini_api_key"])
+        
         # States and Animation
         self.current_state, self.direction, self.frame_index = "idle", 1, 0
         self.last_anim_time = time.time() * 1000
         self.is_emotion_locked = False
-        self.inv_win, self.shop_win, self.todo_win, self.minigame_win, self.slots_win = None, None, None, None, None
+        self.current_state, self.direction, self.frame_index = "idle", 1, 0
+        self.last_anim_time = time.time() * 1000
+        self.is_emotion_locked = False
+        self.inv_win, self.shop_win, self.todo_win, self.minigame_win, self.slots_win, self.chat_win = None, None, None, None, None, None
         self.ach_win = None # Initialize AchievementWindow
         self.last_window_title = ""
         self.last_window_check = 0
@@ -519,10 +528,35 @@ class PetEngine(QObject):
                     self.talk_text(phrase)
                     
                     if not self.is_emotion_locked:
-                        self.set_state(reaction["anim"])
-                        self.is_emotion_locked = True
-                        QTimer.singleShot(4000, lambda: setattr(self, 'is_emotion_locked', False))
+                        self.trigger_emotion(reaction["anim"], 4000)
 
     def talk_text(self, text):
         """Directly speak a specific phrase."""
         self.window.show_bubble(text)
+
+    def set_api_key(self, key):
+        self.stats.data["gemini_api_key"] = key
+        self.stats.save_stats()
+        return self.ai.init_ai(key)
+
+    def chat_with_ai(self, user_text):
+        if self.ai.is_ready:
+            response = self.ai.get_response(user_text)
+            if response:
+                self.talk_text(response)
+                return True
+        else:
+            # Fallback if AI not ready
+            self.talk_text("Я... не маю з'єднання з космосом (Інтернетом). 📡\n(Перевір API ключ або підключення)")
+            return False
+
+    def open_chat(self):
+        from ui.chat_window import ChatWindow
+        if not self.chat_win:
+            self.chat_win = ChatWindow(self)
+        
+        if self.chat_win.isHidden():
+            self.chat_win.show()
+            self.chat_win.move(self.window.x() + 200, self.window.y())
+        else:
+            self.chat_win.hide()

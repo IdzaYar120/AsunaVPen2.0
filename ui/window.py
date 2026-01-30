@@ -365,7 +365,7 @@ class PetWindow(QWidget):
             menu.addAction("🎒  Інвентар").triggered.connect(self.engine.open_inventory)
             menu.addAction("🛒  Магазин").triggered.connect(self.engine.open_shop)
             menu.addAction("🏆  Досягнення").triggered.connect(self.engine.open_achievements)
-            # menu.addAction("🗣️  Talk").triggered.connect(self.engine.talk)
+            menu.addAction("🗣️  Чат (AI)").triggered.connect(self.engine.open_chat)
             
             # Games Submenu
             games_menu = menu.addMenu("🎮  Міні-ігри")

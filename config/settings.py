@@ -8,6 +8,9 @@ class Settings:
     AI_THINK_INTERVAL = 5000       
     TIRED_REMIND_INTERVAL = 10000  
     WALK_SPEED = 1.3
+    
+    # AI CONFIG
+    GEMINI_API_KEY = "" # User will paste key here or via UI
     SCALE_FACTOR = 0.5
     DEFAULT_SPRITE_HEIGHT = 200    
 

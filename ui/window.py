@@ -275,7 +275,13 @@ class PetWindow(QWidget):
     def render_pet(self, px):
         # Add 25px bottom padding for shadow
         nw, nh = px.width(), px.height() + self.header_spacing + 25
-        if self.size() != (nw, nh): self.setFixedSize(nw, nh)
+        
+        # FIX: Avoid resizing while dragging to prevent coordinate jitter
+        if not self.is_dragging:
+            if self.size() != (nw, nh): self.setFixedSize(nw, nh)
+        
+        # If dragging, we might clip if sprite is much larger, but stability is priority.
+        # Ensure label matches pixmap size, but don't force window resize if dragging.
         
         self.label.setGeometry(0, self.header_spacing, px.width(), px.height())
         self.label.setPixmap(px)

@@ -40,27 +40,56 @@ class Settings:
     STAT_BOOST_PER_LEVEL = 20 # +20 to max stats per level
 
     # SHOP
+    MEDICINE_HEAL_AMOUNT = 50
+    
     SHOP_PRICES = {
-        "sandwich": 10, "hot-dog": 15, "sushi": 30, "fried-potatoes": 12, "pizza": 40, "pasta": 35,
-        "lollipop": 5, "toffee": 8, "gummy-bear": 10, "chocolate": 12, "candy-apple": 15,
-        "ball": 30, "joystick": 60,
+        # Sweets
+        "lollipop": 5, "toffee": 8, "gummy-bear": 10, "donut": 10, 
+        "chocolate": 12, "candy-apple": 15, "croissant": 20,
+        
+        # Food
+        "sandwich": 10, "fried-potatoes": 12, "rice": 15, "hot-dog": 15, 
+        "salad": 20, "sushi": 30, "pasta": 35, "pizza": 40, "ramen": 50,
+        
+        # Fruits & Veg (Health)
+        "blueberry": 1, "apple": 2, "tomato": 3, "banana": 3, "cucumber": 4, 
+        "nuts": 5, "pomegranate": 6, "dragon-fruit": 9, "pumpkin": 12,
+
+        # Toys & Gifts
+        "ball": 30, "medicine": 50, "joystick": 60,
         "flowers": 25, "teddy-bear": 55, "sword-gift": 100, "crown": 250
     }
-    FOOD_STATS = {"sandwich": 20, "hot-dog": 25, "sushi": 30, "fried-potatoes": 35, "pizza": 45, "pasta": 50}
-    SWEET_STATS = {"lollipop": 10, "toffee": 15, "gummy-bear": 20, "chocolate": 25, "candy-apple": 30}
+    
+    FOOD_STATS = {
+        "sandwich": 20, "hot-dog": 25, "sushi": 30, "fried-potatoes": 35, 
+        "rice": 35, "salad": 15, "pizza": 45, "pasta": 50, "ramen": 75
+    }
+    
+    SWEET_STATS = {
+        "lollipop": 10, "toffee": 15, "gummy-bear": 20, "chocolate": 25, 
+        "candy-apple": 30, "donut": 10, "croissant": 35
+    }
+    
+    # {Item: (Hunger, Health)}
+    HEALTH_FOOD_STATS = {
+        "blueberry": (0, 1), "apple": (1, 1), "tomato": (2, 1), "banana": (4, 1),
+        "cucumber": (1, 1), "nuts": (6, 3), "pomegranate": (1, 4),
+        "dragon-fruit": (2, 3), "pumpkin": (3, 6)
+    }
+    
     GIFT_STATS = {"flowers": 25, "teddy-bear": 50, "sword-gift": 80, "crown": 100}
     
     SHOP_UNLOCKS = {
-        # Level 1 (Default)
-        "sandwich": 1, "hot-dog": 1, "lollipop": 1, "toffee": 1, "ball": 1,
+        # Level 1
+        "blueberry": 1, "apple": 1, "tomato": 1, "banana": 1, "sandwich": 1, "ball": 1, "medicine": 1,
         # Level 2
-        "fried-potatoes": 2, "gummy-bear": 2,
+        "cucumber": 2, "nuts": 2, "hot-dog": 2, "rice": 2, "salad": 2, "lollipop": 2, "donut": 2,
         # Level 3
-        "chocolate": 3, "sushi": 3, "flowers": 3,
+        "pomegranate": 3, "pumpkin": 3, "fried-potatoes": 3, "toffee": 3, "croissant": 3,
         # Level 4
-        "candy-apple": 4, "pasta": 4,
+        "dragon-fruit": 4, "sushi": 4, "pasta": 4, "gummy-bear": 4,
         # Level 5
-        "pizza": 5, "teddy-bear": 5,
+        "pizza": 5, "ramen": 5, "chocolate": 5, "candy-apple": 5, "teddy-bear": 5,
         # High Level
         "joystick": 7, "sword-gift": 10, "crown": 15
     }

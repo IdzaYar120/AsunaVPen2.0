@@ -67,6 +67,22 @@ class StatsManager:
         if current_state != "sleep":
             self.data["energy"] = max(0.0, min(max_val, self.data["energy"] - (base * e_m)))
 
+        # 4. Health Logic
+        h_decay = 0.0
+        # If starving or exhausted
+        if self.data["hunger"] < 20 or self.data["energy"] < 10:
+             h_decay = 0.05
+        
+        if self.data["hunger"] <= 1:
+             h_decay = 0.2 # Starvation
+
+        if h_decay > 0:
+            self.data["health"] = max(0.0, min(max_val, self.data["health"] - h_decay))
+
+    def heal(self, amount):
+        max_val = self.get_max_stats()
+        self.data["health"] = min(max_val, self.data["health"] + amount)
+
     def add_xp(self, amount):
         self.data["xp"] += amount
         leveled = False

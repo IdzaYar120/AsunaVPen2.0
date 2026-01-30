@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QWidget, QLabel, QGridLayout, QVBoxLayout, QPushButton, QHBoxLayout
+from PyQt6.QtWidgets import QWidget, QLabel, QGridLayout, QVBoxLayout, QPushButton, QHBoxLayout, QTabWidget, QScrollArea, QFrame
 from PyQt6.QtCore import Qt, QPoint
 from PyQt6.QtGui import QPixmap, QImage
 import os
@@ -7,48 +7,70 @@ from config.settings import Settings
 class ShopItem(QWidget):
     def __init__(self, item_id, price, level, on_buy_callback):
         super().__init__()
-        # ФІКС: Фіксований розмір картки товару
-        self.setFixedSize(80, 100)
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(2, 2, 2, 2)
+        self.setFixedSize(85, 110)
+        
+        # Determine Color Border based on rarity/type
+        border_col = "#555"
+        if item_id in Settings.GIFT_STATS: border_col = "#FF69B4" # Pink for gifts
+        elif item_id in Settings.HEALTH_FOOD_STATS: border_col = "#4CAF50" # Green for health
+        
+        container = QFrame(self)
+        container.setGeometry(0, 0, 85, 110)
+        container.setStyleSheet(f"""
+            QFrame {{
+                background: rgba(40, 40, 40, 200);
+                border: 1px solid {border_col};
+                border-radius: 8px;
+            }}
+            QLabel {{ border: none; background: transparent; }}
+        """)
+        
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(5, 5, 5, 5)
         layout.setSpacing(2)
         
-        # Перевірка блокування
+        # Check lock
         req_level = Settings.SHOP_UNLOCKS.get(item_id, 1)
         is_locked = level < req_level
         
+        # Icon
         path = os.path.join(Settings.ICONS_DIR, f"{item_id}.png")
         icon = QLabel()
-        if os.path.exists(path):
-            pix = QPixmap(path).scaled(40, 40, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
-            if is_locked:
-                # Ефект сірого
-                img = pix.toImage()
-                img.convertTo(QImage.Format.Format_Grayscale8)
-                pix = QPixmap.fromImage(img)
-                pix.setDevicePixelRatio(2.0) # Для чіткості
-            icon.setPixmap(pix)
+        icon.setFixedSize(50, 50)
         icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
-        info_text = f"{item_id.replace('-', ' ').title()}\n💰 {price}"
+        if os.path.exists(path):
+            pix = QPixmap(path).scaled(45, 45, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            if is_locked:
+                img = pix.toImage(); img.convertTo(QImage.Format.Format_Grayscale8); pix = QPixmap.fromImage(img)
+                pix.setDevicePixelRatio(2.0)
+            icon.setPixmap(pix)
+        layout.addWidget(icon, alignment=Qt.AlignmentFlag.AlignCenter)
+        
+        # Name & Price
+        name = item_id.replace('-', ' ').title()
+        if len(name) > 10: name = name[:8] + ".." 
+        
+        info_text = f"{name}\n💰 {price}"
         if is_locked: info_text = f"Lvl {req_level}\n🔒"
         
         info = QLabel(info_text)
         info.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        info.setStyleSheet(f"color: {'#888' if is_locked else 'white'}; font-size: 9px; font-weight: bold; border: none;")
+        info.setStyleSheet(f"color: {'#888' if is_locked else 'white'}; font-size: 9px; font-weight: bold;")
+        layout.addWidget(info)
         
+        # Button
         btn = QPushButton("Купити")
-        btn.setFixedSize(70, 20)
+        btn.setFixedHeight(18)
         if is_locked:
             btn.setText(f"Lvl {req_level}")
             btn.setEnabled(False)
-            btn.setStyleSheet("background: #555; color: #AAA; border-radius: 4px; font-size: 10px;")
+            btn.setStyleSheet("background: #444; color: #888; border-radius: 4px; border:none; font-size: 9px;")
         else:
-            btn.setStyleSheet("background: #2E7D32; color: white; border-radius: 4px; font-size: 10px;")
+            btn.setStyleSheet("background: #2E7D32; color: white; border-radius: 4px; border:none; font-size: 10px; font-weight: bold;")
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
             btn.clicked.connect(lambda: on_buy_callback(item_id, price))
-        
-        layout.addWidget(icon)
-        layout.addWidget(info)
+            
         layout.addWidget(btn)
 
 class ShopWindow(QWidget):
@@ -59,41 +81,94 @@ class ShopWindow(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.drag_pos = None
         
-        container = QWidget(self)
-        container.setStyleSheet("background: rgba(30, 30, 30, 245); border: 2px solid #FFD700; border-radius: 12px;")
-        self.main_vbox = QVBoxLayout(self)
-        self.main_vbox.addWidget(container)
+        # Main Container
+        self.container = QWidget(self)
+        self.container.setFixedSize(400, 350)
+        self.setFixedSize(400, 350)
+        self.container.setStyleSheet("""
+            QWidget { background: #1E1E24; border: 1px solid #FFD700; border-radius: 10px; color: white; }
+            QTabWidget::pane { border: none; }
+            QTabBar::tab {
+                background: #333; color: #AAA; padding: 6px 10px;
+                border-top-left-radius: 6px; border-top-right-radius: 6px;
+                margin-right: 2px;
+            }
+            QTabBar::tab:selected { background: #FFD700; color: #000; font-weight: bold; }
+            QTabBar::tab:hover { background: #555; }
+        """)
         
-        content = QVBoxLayout(container)
+        layout = QVBoxLayout(self.container)
+        
+        # Header
         header = QHBoxLayout()
-        title = QLabel("МАГАЗИН"); title.setStyleSheet("color: #FFD700; font-weight: bold; border: none;")
-        self.balance = QLabel(); self.balance.setStyleSheet("color: white; font-weight: bold; border: none;")
+        title = QLabel("🛒 МАГАЗИН")
+        title.setStyleSheet("font-size: 14px; font-weight: bold; border:none; color: #FFD700;")
         
-        close_btn = QPushButton("×")
-        close_btn.setFixedSize(20, 20)
-        close_btn.setStyleSheet("background: #444; color: white; border-radius: 10px; border: none;")
+        self.balance = QLabel()
+        self.balance.setStyleSheet("font-size: 12px; font-weight: bold; color: #4CAF50; border:none;")
+        
+        close_btn = QPushButton("✕")
+        close_btn.setFixedSize(24, 24)
+        close_btn.setStyleSheet("background: transparent; color: #AAA; font-size: 16px; border:none;")
         close_btn.clicked.connect(self.hide)
-
-        header.addWidget(title); header.addStretch(); header.addWidget(self.balance); header.addWidget(close_btn)
-        content.addLayout(header)
         
-        self.grid_widget = QWidget()
-        self.grid = QGridLayout(self.grid_widget)
-        # ФІКС: Вирівнювання сітки
-        self.grid.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
-        content.addWidget(self.grid_widget)
+        header.addWidget(title)
+        header.addStretch()
+        header.addWidget(self.balance)
+        header.addWidget(close_btn)
+        layout.addLayout(header)
+        
+        # Tabs
+        self.tabs = QTabWidget()
+        layout.addWidget(self.tabs)
         
         self.refresh_shop()
 
     def refresh_shop(self):
-        while self.grid.count():
-            w = self.grid.takeAt(0).widget()
-            if w: w.deleteLater()
-        self.balance.setText(f"💰 {int(self.engine.stats.data['money'])} (Lvl {self.engine.stats.data['level']})")
-        for idx, (i_id, price) in enumerate(Settings.SHOP_PRICES.items()):
-            self.grid.addWidget(ShopItem(i_id, price, self.engine.stats.data['level'], self.engine.buy_item), idx//4, idx%4)
-        self.adjustSize()
-
+        # Save current tab index
+        current_idx = self.tabs.currentIndex()
+        if current_idx < 0: current_idx = 0
+        
+        self.tabs.clear()
+        self.balance.setText(f"💰 {int(self.engine.stats.data['money'])}")
+        
+        categories = {
+            "🍔 Їжа": [],
+            "🍭 Солодощі": [],
+            "🍎 Здоров'я": [],
+            "🎁 Подарунки": []
+        }
+        
+        # Categorize
+        for item, price in Settings.SHOP_PRICES.items():
+            if item in Settings.FOOD_STATS: categories["🍔 Їжа"].append((item, price))
+            elif item in Settings.SWEET_STATS: categories["🍭 Солодощі"].append((item, price))
+            elif item in Settings.HEALTH_FOOD_STATS: categories["🍎 Здоров'я"].append((item, price))
+            else: categories["🎁 Подарунки"].append((item, price)) # Default to gifts
+            
+        # Create Tabs
+        for cat_name, items in categories.items():
+            scroll = QScrollArea()
+            scroll.setWidgetResizable(True)
+            scroll.setStyleSheet("QScrollArea { border: none; background: transparent; } QScrollBar:vertical { width: 8px; background: #222; } QScrollBar::handle:vertical { background: #555; border-radius: 4px; }")
+            
+            page = QWidget()
+            page.setStyleSheet("background: transparent; border: none;") # Transparent inside scroll
+            grid = QGridLayout(page)
+            grid.setSpacing(10)
+            grid.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+            
+            for i, (item_id, price) in enumerate(items):
+                item_widget = ShopItem(item_id, price, self.engine.stats.data['level'], self.engine.buy_item)
+                grid.addWidget(item_widget, i // 3, i % 3)
+                
+            scroll.setWidget(page)
+            self.tabs.addTab(scroll, cat_name)
+            
+        # Restore tab index
+        if current_idx < self.tabs.count():
+            self.tabs.setCurrentIndex(current_idx)
+            
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
             self.drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()

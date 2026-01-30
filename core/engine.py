@@ -246,6 +246,12 @@ class PetEngine(QObject):
                 self.trigger_emotion("excited", 4000); self.window.show_emote("happy"); self.sound.play("arigato")
                 self.window.create_floating_text(f"+{gain} ❤️", "#FF69B4")
                 self.check_quests("eat", i_id, delay_victory=4000) # Gift treated as eat/use
+        elif i_id == "medicine":
+            if self.stats.use_item(i_id):
+                self.stats.heal(Settings.MEDICINE_HEAL_AMOUNT)
+                self.trigger_emotion("eat", 2000) 
+                self.talk_text("Дякую, тепер краще! 💊✨")
+                self.window.create_floating_text(f"+{Settings.MEDICINE_HEAL_AMOUNT} Health ❤️", "#FF4444")
         elif i_id in Settings.PLAY_ITEMS:
             if self.current_state == "sleep": return
             if self.stats.use_item(i_id):
@@ -315,6 +321,12 @@ class PetEngine(QObject):
         # Chance for random idle talk (1% per think interval)
         if random.random() < 0.05:
             self.talk(auto=True)
+
+        # Health Consequences
+        if self.stats.data["health"] < 30:
+             if random.random() < 0.1: # 10% chance
+                 self.trigger_emotion("tired", 3000)
+                 self.talk_text(random.choice(["Мені погано... 🤢", "Потрібні ліки... 💊"]))
 
     def check_system_reactions(self):
         if not hasattr(self, 'sys_monitor'): return
@@ -547,6 +559,30 @@ class PetEngine(QObject):
                 
         self.window.show_bubble(text)
 
+    def use_item(self, item): # Assuming this is the function where the new code should go
+        if item in Settings.FOOD_STATS:
+            self.feed(Settings.FOOD_STATS[item])
+            self.trigger_emotion("eat", 2000)
+            self.sound.play("eat")
+            
+        elif item in Settings.SWEET_STATS:
+            # Sweets give happiness but less hunger fill
+            self.stats.data["happiness"] = min(100.0, self.stats.data["happiness"] + Settings.SWEET_STATS[item])
+            self.stats.data["hunger"] = min(self.stats.get_max_stats(), self.stats.data["hunger"] + 5)
+            self.trigger_emotion("eat", 2000)
+            self.sound.play("eat")
+            self.window.create_floating_text("Смакота! 🍬", "#FF69B4")
+            
+        elif item in Settings.HEALTH_FOOD_STATS:
+            hunger_g, health_g = Settings.HEALTH_FOOD_STATS[item]
+            self.feed(hunger_g)
+            self.stats.heal(health_g)
+            self.trigger_emotion("eat", 2000)
+            self.sound.play("eat")
+            self.window.create_floating_text(f"+{health_g} ❤️", "#FF4444")
+
+        elif item == "medicine": self.sound.play("happy") # Corrected from original snippet
+
     def handle_response(self, key):
         """Handle bubble response selection."""
         if key == "happy":
@@ -641,10 +677,12 @@ class PetEngine(QObject):
     def select_music_folder(self):
         folder = QFileDialog.getExistingDirectory(None, "Виберіть папку з музикою")
         if folder:
-            self.music_player.load_music(folder)
-            self.music_player.play_music()
-            self.window.create_floating_text("Музика завантажена! 🎵", "#00BFFF")
-            self.show_music_widget()
+            count = self.music_player.set_folder(folder)
+            if count > 0:
+                self.window.create_floating_text(f"Завантажено: {count} 🎵", "#00BFFF")
+                self.show_music_widget()
+            else:
+                self.window.create_floating_text("Тут пусто... 😕", "#FF4444")
 
     def music_volume(self, vol):
         self.music_player.set_volume(vol)
@@ -658,16 +696,18 @@ class PetEngine(QObject):
 
     # System Monitor
     def toggle_system_monitor(self):
-        from core.system_monitor import SystemMonitor
         from ui.system_widget import SystemWidget
         
-        if not hasattr(self, 'sys_monitor'):
-            self.sys_monitor = SystemMonitor()
+        # Ensure widget exists (lazy loading)
+        if not hasattr(self, 'sys_widget'):
             self.sys_widget = SystemWidget(self.sys_monitor)
+            # Initial position
+            self.sys_widget.move(self.window.x() - 230, self.window.y() + 50)
         
         if self.sys_widget.isVisible():
             self.sys_widget.hide()
         else:
+            self.sys_widget.show()
             # Position to the left of pet
             self.sys_widget.move(self.window.x() - 230, self.window.y() + 50)
             self.sys_widget.show()

@@ -2,9 +2,9 @@ from PyQt6.QtWidgets import QWidget, QHBoxLayout, QPushButton
 from PyQt6.QtCore import Qt
 
 class MusicWidget(QWidget):
-    def __init__(self, engine, parent=None):
+    def __init__(self, player, parent=None):
         super().__init__(parent)
-        self.engine = engine
+        self.player = player
         self.setWindowFlags(Qt.WindowType.Tool | Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         
@@ -27,9 +27,9 @@ class MusicWidget(QWidget):
         self.setStyleSheet(style)
         
         # Buttons
-        self.btn_prev = self.create_btn("⏮️", self.engine.music_prev)
-        self.btn_play = self.create_btn("⏯️", self.toggle_play)
-        self.btn_next = self.create_btn("⏭️", self.engine.music_next)
+        self.btn_prev = self.create_btn("⏮️", self.player.prev_track)
+        self.btn_play = self.create_btn("⏯️", self.player.toggle_pause)
+        self.btn_next = self.create_btn("⏭️", self.player.next_track)
         self.btn_stop = self.create_btn("⏹️", self.stop_music)
         
         layout.addWidget(self.btn_prev)
@@ -45,13 +45,8 @@ class MusicWidget(QWidget):
         btn.clicked.connect(func)
         return btn
         
-    def toggle_play(self):
-        self.engine.toggle_music()
-        state = self.engine.music_player.player.playbackState()
-        # Update icon if needed, though toggle is generic
-        
     def stop_music(self):
-        self.engine.music_stop()
+        self.player.stop()
         self.hide()
 
     def update_position(self, pet_x, pet_y, pet_w, pet_h):

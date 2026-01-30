@@ -15,8 +15,6 @@ from ui.slots import SlotsWindow
 from ui.todo_list import TodoWindow
 from ui.shop import ShopWindow
 from ui.inventory import InventoryWindow
-from ui.inventory import InventoryWindow
-from ui.achievements import AchievementWindow
 from ui.achievements import AchievementWindow
 from core.ai_client import AIClient
 from core.music_player import MusicPlayer

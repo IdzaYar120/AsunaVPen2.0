@@ -27,15 +27,24 @@ class TrayMenu(QSystemTrayIcon):
     def create_menu(self):
         menu = QMenu()
         menu.setStyleSheet("QMenu { background-color: #2b2b2b; color: white; border: 1px solid #555; }")
+        
         menu.addAction("🎒 Інвентар").triggered.connect(self.engine.open_inventory)
         menu.addAction("🛒 Магазин").triggered.connect(self.engine.open_shop)
         
+        # Actions Submenu
+        actions_menu = menu.addMenu("⚡ Дії")
+        actions_menu.addAction("⚔️ Тренування").triggered.connect(self.engine.train)
+        
+        sleep_t = "☀️ Прокинутись" if self.engine.current_state == "sleep" else "🌙 Лягти спати"
+        actions_menu.addAction(sleep_t).triggered.connect(self.engine.toggle_sleep)
+
+        # Games Submenu
         games_menu = menu.addMenu("🎮 Міні-ігри")
         games_menu.addAction("💰 Полювання за монетами").triggered.connect(self.engine.open_minigame)
         games_menu.addAction("🎰 Ігрові автомати").triggered.connect(self.engine.open_slots)
         
+        menu.addSeparator()
         menu.addAction("📝 Список справ").triggered.connect(self.engine.open_todo_list)
-        menu.addAction("⚔️ Тренування").triggered.connect(self.engine.train)
         menu.addSeparator()
         menu.addAction("❌ Вийти").triggered.connect(self.app.quit)
         return menu

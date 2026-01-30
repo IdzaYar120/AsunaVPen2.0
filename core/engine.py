@@ -37,7 +37,13 @@ class PetEngine(QObject):
         if self.stats.data.get("gemini_api_key"):
             self.ai.init_ai(self.stats.data["gemini_api_key"])
             
+        
         self.music_player = MusicPlayer()
+        
+        # System Monitor (Background)
+        from core.system_monitor import SystemMonitor
+        self.sys_monitor = SystemMonitor()
+
         
         # States and Animation
         self.current_state, self.direction, self.frame_index = "idle", 1, 0
@@ -298,11 +304,43 @@ class PetEngine(QObject):
         if self.music_player and self.music_player.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
              if random.random() < 0.4: # 40% chance every 5s
                  self.trigger_emotion("dance", 5000) # Logic handled in trigger_emotion
-                 return
+             if random.random() < 0.05:
+                self.check_system_reactions()
 
+        # 3. Random Idle Behavior
         if random.random() < 0.3:
             self.set_state("walk"); self.direction = random.choice([1, -1])
         else: self.set_state("idle")
+        
+        # Chance for random idle talk (1% per think interval)
+        if random.random() < 0.05:
+            self.talk(auto=True)
+
+    def check_system_reactions(self):
+        if not hasattr(self, 'sys_monitor'): return
+        
+        stats = self.sys_monitor.get_stats()
+        
+        # High CPU Reaction
+        if stats["cpu"] > 80:
+            self.trigger_emotion("tired", 4000)
+            self.talk_text(random.choice([
+                "Ух... процесор кипить! 🔥",
+                "Мені аж жарко стало... 🥵",
+                "Комп'ютер зараз злетить! 🚀"
+            ]))
+            return
+
+        # Low Battery Reaction
+        if stats["battery"] is not None and stats["battery"] < 20 and not stats["plugged"]:
+            self.trigger_emotion("scared", 4000)
+            self.talk_text("Ей! Заряджай нас швидше! 🔋😱")
+            return
+            
+        # High RAM Reaction
+        if stats["ram_percent"] > 90:
+             self.trigger_emotion("confused", 4000)
+             self.talk_text("Ого, пам'яті зовсім немає... 😵‍💫")
         
         # Chance for new quest (5% every 5s approx)
         if random.random() < 0.05:
@@ -601,44 +639,35 @@ class PetEngine(QObject):
             
     # Music Player Integration
     def select_music_folder(self):
-        folder = QFileDialog.getExistingDirectory(self.window, "Виберіть папку з музикою")
+        folder = QFileDialog.getExistingDirectory(None, "Виберіть папку з музикою")
         if folder:
-            count = self.music_player.set_folder(folder)
-            if count > 0:
-                self.talk_text(f"О, знайшла {count} треків! 🎵 Вмикаю!")
-                self.window.create_floating_text(f"Playing: {count} songs", "#00FFFF")
-                self.trigger_emotion("excited", 3000)
-                self.window.show_emote("happy")
-                
-                # Show Widget
-                from ui.music_widget import MusicWidget
-                if not self.music_widget: self.music_widget = MusicWidget(self)
-                self.music_widget = MusicWidget(self)
-                self.music_widget.show()
-                self.music_widget.update_position(self.window.x(), self.window.y(), self.window.width(), self.window.height())
-            else:
-                self.talk_text("Тут пусто... або файли не ті. 😕")
-                
-    def toggle_music(self):
-        self.music_player.toggle_pause()
-        state = "Paused" if self.music_player.player.playbackState() != 1 else "Playing" # 1=Playing
-        self.window.create_floating_text(f"Music: {state}", "#00FFFF")
-        if state == "Playing":
-            self.window.show_emote("happy")
-            
-    def music_next(self):
-        self.music_player.next_track()
-        self.window.create_floating_text("Next Track ⏭️", "#00FFFF")
-        
-    def music_prev(self):
-        self.music_player.prev_track()
-        self.window.create_floating_text("Prev Track ⏮️", "#00FFFF")
-        
-    def music_stop(self):
-        self.music_player.stop()
-        self.window.create_floating_text("Music Stopped ⏹️", "#555")
-        if self.music_widget: self.music_widget.hide()
-        
+            self.music_player.load_music(folder)
+            self.music_player.play_music()
+            self.window.create_floating_text("Музика завантажена! 🎵", "#00BFFF")
+            self.show_music_widget()
+
     def music_volume(self, vol):
         self.music_player.set_volume(vol)
-        self.window.create_floating_text(f"Volume: {vol}%", "#00FFFF")
+        self.window.create_floating_text(f"Гучність: {vol}%", "#00BFFF")
+        
+    def show_music_widget(self):
+        from ui.music_widget import MusicWidget
+        if not self.music_widget: self.music_widget = MusicWidget(self.music_player)
+        self.music_widget.update_position(self.window.x(), self.window.y(), self.window.width(), self.window.height())
+        self.music_widget.show()
+
+    # System Monitor
+    def toggle_system_monitor(self):
+        from core.system_monitor import SystemMonitor
+        from ui.system_widget import SystemWidget
+        
+        if not hasattr(self, 'sys_monitor'):
+            self.sys_monitor = SystemMonitor()
+            self.sys_widget = SystemWidget(self.sys_monitor)
+        
+        if self.sys_widget.isVisible():
+            self.sys_widget.hide()
+        else:
+            # Position to the left of pet
+            self.sys_widget.move(self.window.x() - 230, self.window.y() + 50)
+            self.sys_widget.show()

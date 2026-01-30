@@ -366,30 +366,45 @@ class PetWindow(QWidget):
             menu.addAction("🛒  Магазин").triggered.connect(self.engine.open_shop)
             menu.addAction("🏆  Досягнення").triggered.connect(self.engine.open_achievements)
             menu.addAction("🗣️  Чат (AI)").triggered.connect(self.engine.open_chat)
+            menu.addAction("📊  Системний Монітор").triggered.connect(self.engine.toggle_system_monitor)
+            menu.addSeparator()
+
+            # Actions Submenu
+            actions_menu = menu.addMenu("⚡  Дії")
+            actions_menu.setStyleSheet(menu.styleSheet())
             
-            # Music Submenu
-            music_menu = menu.addMenu("🎵  Музика")
-            music_menu.addAction("📂  Вибрати папку").triggered.connect(self.engine.select_music_folder)
+            actions_menu.addAction("⚔️  Тренування").triggered.connect(self.engine.train)
             
-            vol_menu = music_menu.addMenu("🔈  Гучність")
-            vol_menu.addAction("25%").triggered.connect(lambda: self.engine.music_volume(25))
-            vol_menu.addAction("50%").triggered.connect(lambda: self.engine.music_volume(50))
-            vol_menu.addAction("75%").triggered.connect(lambda: self.engine.music_volume(75))
-            vol_menu.addAction("100%").triggered.connect(lambda: self.engine.music_volume(100))
+            sleep_t = "☀️  Прокинутись" if self.engine.current_state == "sleep" else "🌙  Лягти спати"
+            actions_menu.addAction(sleep_t).triggered.connect(self.engine.toggle_sleep)
             
+            if not self.engine.work_timer.isActive(): 
+                actions_menu.addAction("📖  Навчання").triggered.connect(self.prompt_work_time)
+            else: 
+                actions_menu.addAction("🛑  Зупинити роботу").triggered.connect(self.engine.stop_work_session)
+
             # Games Submenu
             games_menu = menu.addMenu("🎮  Міні-ігри")
             games_menu.setStyleSheet(menu.styleSheet())
             games_menu.addAction("💰  Полювання за монетами").triggered.connect(self.engine.open_minigame)
             games_menu.addAction("🎰  Ігрові автомати").triggered.connect(self.engine.open_slots)
+
+            # Music Submenu
+            music_menu = menu.addMenu("🎵  Музика")
+            music_menu.setStyleSheet(menu.styleSheet())
+            music_menu.addAction("📂  Вибрати папку").triggered.connect(self.engine.select_music_folder)
             
-            if not self.engine.work_timer.isActive(): menu.addAction("📖  Навчання").triggered.connect(self.prompt_work_time)
-            else: menu.addAction("🛑  Зупинити").triggered.connect(self.engine.stop_work_session)
+            vol_menu = music_menu.addMenu("🔈  Гучність")
+            vol_menu.setStyleSheet(menu.styleSheet())
+            vol_menu.addAction("25%").triggered.connect(lambda: self.engine.music_volume(25))
+            vol_menu.addAction("50%").triggered.connect(lambda: self.engine.music_volume(50))
+            vol_menu.addAction("75%").triggered.connect(lambda: self.engine.music_volume(75))
+            vol_menu.addAction("100%").triggered.connect(lambda: self.engine.music_volume(100))
+            
+            menu.addSeparator()
             menu.addAction("📝  Список справ").triggered.connect(self.engine.open_todo_list)
-            menu.addAction("⚔️  Тренування").triggered.connect(self.engine.train)
-            sleep_t = "☀️  Прокинутись" if self.engine.current_state == "sleep" else "🌙  Лягти спати"
-            menu.addAction(sleep_t).triggered.connect(self.engine.toggle_sleep)
-            menu.addSeparator(); menu.addAction("❌  Вийти").triggered.connect(QCoreApplication.instance().quit)
+            menu.addSeparator()
+            menu.addAction("❌  Вийти").triggered.connect(QCoreApplication.instance().quit)
             menu.exec(event.globalPos())
 
     def prompt_work_time(self):

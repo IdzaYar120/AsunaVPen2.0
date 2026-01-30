@@ -6,18 +6,20 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+from core.resource_manager import ResourceManager
+
 class TrayMenu(QSystemTrayIcon):
     def __init__(self, engine, app):
         super().__init__()
         self.engine = engine
         self.app = app
         
-        # ФІКС: Надійна перевірка іконки
-        icon_path = os.path.join(Settings.ANIM_DIR, "idle", "0.png")
-        if os.path.exists(icon_path):
-            self.setIcon(QIcon(icon_path))
+        # Завантажуємо іконку з пам'яті (перший кадр idle)
+        frames = ResourceManager().get_frames("idle")
+        if frames:
+            self.setIcon(QIcon(frames[0]))
         else:
-            logger.warning(f"Tray icon not found at {icon_path}. Using fallback.")
+            logger.warning("Tray icon: 'idle' animation not found.")
 
         self.setContextMenu(self.create_menu())
         self.show()

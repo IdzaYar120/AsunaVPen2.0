@@ -20,17 +20,28 @@ class ResourceManager:
             logger.error(f"Animations directory missing: {Settings.ANIM_DIR}")
             return
 
-        self.ref_h = int(self._determine_reference_height() * Settings.SCALE_FACTOR)
-        padding = int(60 * Settings.SCALE_FACTOR)
-        canvas_size = QSize(self.ref_h + padding, self.ref_h + padding)
-
+        # Estimate Ref H (Generic fallback or based on first sheet)
+        # We'll use default since sheets might vary in size
+        self.ref_h = int(Settings.DEFAULT_SPRITE_HEIGHT * Settings.SCALE_FACTOR)
+        
         for folder in os.listdir(Settings.ANIM_DIR):
             path = os.path.join(Settings.ANIM_DIR, folder)
             if os.path.isdir(path):
-                frames = self._load_folder(path, canvas_size)
-                if frames:
-                    self.animations[folder] = frames
-                    logger.info(f"Successfully loaded: {folder}")
+                # Check for Sprite Sheet (convention: foldername.png inside folder)
+                sheet_path = os.path.join(path, f"{folder}.png")
+                
+                if os.path.exists(sheet_path):
+                    # Default: 2 rows, 5 cols
+                    rows, cols = 2, 5
+                    if folder == "training": cols = 4 
+                    
+                    self.load_from_sheet(folder, sheet_path, rows, cols)
+                else:
+                    # Fallback to Sequence Loading
+                    frames = self._load_folder(path)
+                    if frames:
+                        self.animations[folder] = frames
+                        logger.info(f"Loaded sequence: {folder}")
 
     def _determine_reference_height(self):
         """Шукає walk_right або перше доступне зображення"""
@@ -60,3 +71,41 @@ class ResourceManager:
         return frames
 
     def get_frames(self, state): return self.animations.get(state, [])
+
+    def load_from_sheet(self, name, path, rows, cols):
+        """Loads animation from a sprite sheet."""
+        if not os.path.exists(path):
+            logger.error(f"Sprite sheet not found: {path}")
+            return False
+            
+        sheet = QPixmap(path)
+        if sheet.isNull(): return False
+        
+        frame_w = sheet.width() // cols
+        frame_h = sheet.height() // rows
+        
+        frames = []
+        canvas_size = QSize(int(self.ref_h + 60*Settings.SCALE_FACTOR), int(self.ref_h + 60*Settings.SCALE_FACTOR))
+        
+        for r in range(rows):
+            for c in range(cols):
+                # Crop frame
+                cropped = sheet.copy(c * frame_w, r * frame_h, frame_w, frame_h)
+                
+                # Scale and Center
+                scaled = cropped.scaledToHeight(self.ref_h, Qt.TransformationMode.SmoothTransformation)
+                canvas = QPixmap(canvas_size)
+                canvas.fill(Qt.GlobalColor.transparent)
+                painter = QPainter(canvas)
+                
+                # Center horizontally, bottom align
+                x = (canvas_size.width() - scaled.width()) // 2
+                y = canvas_size.height() - scaled.height()
+                
+                painter.drawPixmap(x, y, scaled)
+                painter.end()
+                frames.append(canvas)
+                
+        self.animations[name] = frames
+        logger.info(f"Loaded sprite sheet: {name} ({len(frames)} frames)")
+        return True

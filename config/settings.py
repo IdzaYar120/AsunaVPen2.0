@@ -4,14 +4,14 @@ class Settings:
     PROJECT_NAME = "Asuna VPet Pro"
     LOG_LEVEL = logging.INFO
     TARGET_FPS = 60
-    ANIMATION_SPEED = 125
+    ANIMATION_SPEED = 250
     AI_THINK_INTERVAL = 5000       
     TIRED_REMIND_INTERVAL = 10000  
     WALK_SPEED = 1.3
     
     # AI CONFIG
     GEMINI_API_KEY = "" # User will paste key here or via UI
-    SCALE_FACTOR = 0.5
+    SCALE_FACTOR = 0.85
     DEFAULT_SPRITE_HEIGHT = 200    
 
     DEFAULT_SPRITE_HEIGHT = 200    
@@ -119,5 +119,7 @@ class Settings:
         "angry": "angry.wav",
         "happy": "happy.wav",
         "sleep": "sleep.wav",
-        "coin_game": "coin_game.wav"
+        "coin_game": "coin_game.wav",
+        "quest": "quest.wav",
+        "slots": "slots.wav"
     }

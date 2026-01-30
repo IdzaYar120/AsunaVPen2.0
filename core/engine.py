@@ -166,7 +166,7 @@ class PetEngine(QObject):
         return False
 
     def train(self):
-        if self.current_state in ["sleep", "tired", "working"]: return
+        if self.current_state in ["sleep", "tired", "working"] or self.is_emotion_locked: return
         if self.check_happiness_block(): return # Mood Check
         
         if self.stats.data["energy"] < 25:
@@ -231,6 +231,7 @@ class PetEngine(QObject):
         self.window.show_emote("happy")
 
     def use_item_from_inventory(self, i_id):
+        if self.is_emotion_locked: return
         self.reset_interaction()
         if i_id in Settings.GIFT_STATS:
             if self.stats.use_item(i_id):
@@ -307,6 +308,7 @@ class PetEngine(QObject):
         if random.random() < 0.05:
             if self.task_manager.generate_random_quest():
                 self.window.show_emote("quest")
+                self.sound.play("quest")
                 if self.todo_win and not self.todo_win.isHidden(): self.todo_win.refresh_list()
         
         # Chance for random idle talk (1% per think interval)
@@ -458,6 +460,7 @@ class PetEngine(QObject):
             self.slots_win = SlotsWindow(self)
             self.slots_win.move(self.window.x(), self.window.y() - 320)
             self.slots_win.show()
+            self.sound.play("slots")
 
 
     def set_state(self, s):

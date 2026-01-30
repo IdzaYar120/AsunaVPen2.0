@@ -16,7 +16,7 @@ class SlotsWindow(QWidget):
         
         # Символи та коефіцієнти
         self.SYMBOLS = ["🍒", "🍋", "🍇", "💎", "👑"]
-        self.WEIGHTS = [40, 30, 20, 9, 1] # Ймовірності
+        self.WEIGHTS = [50, 25, 10, 4, 1] # Ймовірності (Баланс: частіші дрібні виграші)
         # Кеш для швидкого вибору з вагою
         self.weighted_pool = []
         for sym, w in zip(self.SYMBOLS, self.WEIGHTS):
@@ -179,5 +179,10 @@ class SlotsWindow(QWidget):
         # Refresh visuals in main engine if needed
         self.engine.window.update_stats_ui(
             self.engine.stats.data["hunger"], self.engine.stats.data["energy"],
-            self.engine.stats.data["health"], self.engine.stats.data["happiness"]
+            self.engine.stats.data["health"], self.engine.stats.data["happiness"],
+            self.engine.stats.get_max_stats()
         )
+
+    def closeEvent(self, event):
+        self.engine.sound.stop("slots")
+        event.accept()

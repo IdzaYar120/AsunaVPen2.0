@@ -2,3 +2,7 @@ __pycache__/
 *.tmp
 data/stats.json
 .vscode/
+dist/
+build/
+*.spec
+data/asuna.log

@@ -27,6 +27,12 @@ class TrayMenu(QSystemTrayIcon):
         menu.setStyleSheet("QMenu { background-color: #2b2b2b; color: white; border: 1px solid #555; }")
         menu.addAction("🎒 Інвентар").triggered.connect(self.engine.open_inventory)
         menu.addAction("🛒 Магазин").triggered.connect(self.engine.open_shop)
+        
+        games_menu = menu.addMenu("🎮 Міні-ігри")
+        games_menu.addAction("💰 Полювання за монетами").triggered.connect(self.engine.open_minigame)
+        games_menu.addAction("🎰 Ігрові автомати").triggered.connect(self.engine.open_slots)
+        
+        menu.addAction("📝 Список справ").triggered.connect(self.engine.open_todo_list)
         menu.addAction("⚔️ Тренування").triggered.connect(self.engine.train)
         menu.addSeparator()
         menu.addAction("❌ Вийти").triggered.connect(self.app.quit)

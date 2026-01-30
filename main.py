@@ -8,9 +8,14 @@ from config.settings import Settings
 
 def main():
     # НАЛАШТУВАННЯ ЛОГУВАННЯ
+    log_file = Settings.SAVE_PATH.replace('stats.json', 'asuna.log')
     logging.basicConfig(
         level=Settings.LOG_LEVEL,
-        format='%(asctime)s [%(levelname)s] %(name)s: %(message)s'
+        format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
+        handlers=[
+            logging.FileHandler(log_file, encoding='utf-8'),
+            logging.StreamHandler(sys.stdout)
+        ]
     )
     
     app = QApplication(sys.argv)

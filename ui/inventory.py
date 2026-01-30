@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import QWidget, QLabel, QGridLayout, QVBoxLayout, QPushButton, QHBoxLayout
-from PyQt6.QtCore import Qt, QMimeData
+from PyQt6.QtCore import Qt, QMimeData, QPoint
 from PyQt6.QtGui import QPixmap, QDrag
 import os
 from config.settings import Settings
@@ -68,6 +68,8 @@ class InventoryWindow(QWidget):
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         
+        self.drag_pos = None
+        
         # Контейнер
         self.container = QWidget(self)
         self.container.setStyleSheet("background: rgba(25, 25, 25, 240); border: 2px solid #666; border-radius: 15px;")
@@ -116,3 +118,13 @@ class InventoryWindow(QWidget):
             self.grid.addWidget(InventoryItem(item_id, count), row, col)
         
         self.adjustSize()
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+            event.accept()
+
+    def mouseMoveEvent(self, event):
+        if event.buttons() == Qt.MouseButton.LeftButton and self.drag_pos:
+            self.move(event.globalPosition().toPoint() - self.drag_pos)
+            event.accept()

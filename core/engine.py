@@ -31,22 +31,19 @@ class PetEngine(QObject):
         self.task_manager = TaskManager(self.stats)
         self.sound = SoundManager()
         
+        self.load_language() # Load Strings
+        
         self.ai = AIClient()
         if self.stats.data.get("gemini_api_key"):
             self.ai.init_ai(self.stats.data["gemini_api_key"])
             
-        
         self.music_player = MusicPlayer()
         
         # System Monitor (Background)
         from core.system_monitor import SystemMonitor
         self.sys_monitor = SystemMonitor()
 
-        
         # States and Animation
-        self.current_state, self.direction, self.frame_index = "idle", 1, 0
-        self.last_anim_time = time.time() * 1000
-        self.is_emotion_locked = False
         self.current_state, self.direction, self.frame_index = "idle", 1, 0
         self.last_anim_time = time.time() * 1000
         self.is_emotion_locked = False
@@ -76,6 +73,24 @@ class PetEngine(QObject):
         
         self.ai_timer = QTimer(self); self.ai_timer.timeout.connect(self.think)
         self.ai_timer.start(Settings.AI_THINK_INTERVAL)
+
+    def load_language(self):
+        try:
+            import json, os
+            path = os.path.join("assets", "lang", "uk.json")
+            if os.path.exists(path):
+                with open(path, 'r', encoding='utf-8') as f:
+                    self.lang = json.load(f)
+            else:
+                self.lang = {}
+        except Exception as e:
+            logger.error(f"Failed to load language: {e}")
+            self.lang = {}
+
+    def _t(self, key, **kwargs):
+        val = self.lang.get(key, key)
+        if isinstance(val, list): return random.choice(val)
+        return val.format(**kwargs)
 
     def update_loop(self):
         # Update UI with support for dynamic MAX stats
@@ -144,7 +159,7 @@ class PetEngine(QObject):
 
     def release_emotion(self):
         """Return to normal state after emotion ends."""
-        if self.window.is_dragging: return
+        # if self.window.is_dragging: return # REMOVED: Caused stuck lock if dragging during timeout
         
         # Return Priority: Work -> Sad -> Tired -> Idle
         if self.work_timer.isActive():
@@ -165,7 +180,7 @@ class PetEngine(QObject):
             self.window.show_emote("angry")
             self.window.show_emote("angry")
             self.sound.play("angry")
-            self.window.create_floating_text("Я СУМУЮ...", "#FF4444")
+            self.window.create_floating_text(self._t("emote_sad"), "#FF4444")
             return True
         return False
 
@@ -200,7 +215,8 @@ class PetEngine(QObject):
             self.stats.data["happiness"] = min(100.0, self.stats.data["happiness"] + hap)
             
             # Delayed animation and text
-            QTimer.singleShot(delay_victory, lambda: self.window.create_floating_text("КВЕСТ ВИКОНАНО!", "#00FF00"))
+            # Delayed animation and text
+            QTimer.singleShot(delay_victory, lambda: self.window.create_floating_text(self._t("quest_completed"), "#00FF00"))
             QTimer.singleShot(delay_victory + 500, lambda r=r: self.window.create_floating_text(f"+{r['money']} 💰  +{r['xp']} XP", "#FFD700"))
             QTimer.singleShot(delay_victory + 1500, lambda h=hap: self.window.create_floating_text(f"+{h} ❤️", "#FF69B4"))
             
@@ -235,8 +251,10 @@ class PetEngine(QObject):
         self.window.show_emote("happy")
 
     def use_item_from_inventory(self, i_id):
-        if self.is_emotion_locked: return
+        # Allow items to break the lock (e.g. food soothes anger)
+        self.is_emotion_locked = False 
         self.reset_interaction()
+        
         if i_id in Settings.GIFT_STATS:
             if self.stats.use_item(i_id):
                 gain = Settings.GIFT_STATS[i_id]
@@ -248,7 +266,7 @@ class PetEngine(QObject):
             if self.stats.use_item(i_id):
                 self.stats.heal(Settings.MEDICINE_HEAL_AMOUNT)
                 self.trigger_emotion("eat", 2000) 
-                self.talk_text("Дякую, тепер краще! 💊✨")
+                self.talk_text(self._t("emote_thanks"))
                 self.window.create_floating_text(f"+{Settings.MEDICINE_HEAL_AMOUNT} Health ❤️", "#FF4444")
         elif i_id in Settings.PLAY_ITEMS:
             if self.current_state == "sleep": return
@@ -258,26 +276,41 @@ class PetEngine(QObject):
                 self.trigger_emotion("playing", 5000)
                 self.window.create_floating_text("+30 ❤️", "#FF69B4")
                 if self.stats.add_xp(Settings.PLAY_XP_REWARD): self.trigger_levelup()
-        else: # Food / Sweets
+        else: # Food / Sweets / Healthy
             is_sweet = i_id in Settings.SWEET_STATS
+            is_healthy = i_id in Settings.HEALTH_FOOD_STATS
+            
             t_stat = "energy" if is_sweet else "hunger"
             max_val = self.stats.get_max_stats()
             
-            if self.stats.data[t_stat] >= max_val - 5: 
+            # Check if full (only for pure food/sweets, healthy items might be used for health)
+            if not is_healthy and self.stats.data[t_stat] >= max_val - 5: 
                 self.trigger_emotion("angry", 3000); self.window.show_emote("angry"); self.sound.play("angry"); return
                 
             if self.stats.use_item(i_id):
-                gain = Settings.SWEET_STATS[i_id] if is_sweet else Settings.FOOD_STATS[i_id]
-                self.stats.data[t_stat] = min(max_val, self.stats.data[t_stat] + gain)
-                
-                # Sweets add a little happiness
-                if is_sweet:
-                    self.stats.data["happiness"] = min(100.0, self.stats.data["happiness"] + 5)
-                    self.window.create_floating_text("+5 ❤️", "#FF69B4")
+                if is_healthy:
+                    # Healthy Food Logic (Hunger, Health)
+                    h_gain, hp_gain = Settings.HEALTH_FOOD_STATS[i_id]
+                    self.stats.data["hunger"] = min(max_val, self.stats.data["hunger"] + h_gain)
+                    self.stats.heal(hp_gain)
+                    self.window.create_floating_text(f"+{h_gain} 🍗 +{hp_gain} ❤️", "#90EE90")
+                    self.trigger_emotion("eat", 3000)
+                else:
+                    # Standard Food/Sweets
+                    gain = Settings.SWEET_STATS[i_id] if is_sweet else Settings.FOOD_STATS[i_id]
+                    self.stats.data[t_stat] = min(max_val, self.stats.data[t_stat] + gain)
+                    
+                    # Sweets add a little happiness
+                    if is_sweet:
+                        self.stats.data["happiness"] = min(100.0, self.stats.data["happiness"] + 5)
+                        self.window.create_floating_text("+5 ❤️", "#FF69B4")
+                    
+                    self.trigger_emotion("eat", 5000)
                 
                 if is_sweet or self.current_state in ["sleep", "tired"]: self.is_emotion_locked = False
-                self.trigger_emotion("eat", 5000); self.window.show_emote("happy"); self.sound.play_looped("eat", 5000)
-                self.check_quests("eat", i_id, delay_victory=5000)
+                self.window.show_emote("happy")
+                self.sound.play_looped("eat", 3000)
+                self.check_quests("eat", i_id, delay_victory=3000)
         
         if self.inv_win: self.inv_win.refresh(self.stats.data)
 
@@ -324,7 +357,7 @@ class PetEngine(QObject):
         if self.stats.data["health"] < 30:
              if random.random() < 0.1: # 10% chance
                  self.trigger_emotion("tired", 3000)
-                 self.talk_text(random.choice(["Мені погано... 🤢", "Потрібні ліки... 💊"]))
+                 self.talk_text(random.choice([self._t("ill_nausea"), self._t("ill_pills")]))
 
     def check_system_reactions(self):
         if not hasattr(self, 'sys_monitor'): return
@@ -334,23 +367,19 @@ class PetEngine(QObject):
         # High CPU Reaction
         if stats["cpu"] > 80:
             self.trigger_emotion("tired", 4000)
-            self.talk_text(random.choice([
-                "Ух... процесор кипить! 🔥",
-                "Мені аж жарко стало... 🥵",
-                "Комп'ютер зараз злетить! 🚀"
-            ]))
+            self.talk_text(self._t("sys_cpu"))
             return
 
         # Low Battery Reaction
         if stats["battery"] is not None and stats["battery"] < 20 and not stats["plugged"]:
             self.trigger_emotion("scared", 4000)
-            self.talk_text("Ей! Заряджай нас швидше! 🔋😱")
+            self.talk_text(self._t("sys_battery"))
             return
             
         # High RAM Reaction
         if stats["ram_percent"] > 90:
              self.trigger_emotion("confused", 4000)
-             self.talk_text("Ого, пам'яті зовсім немає... 😵‍💫")
+             self.talk_text(self._t("sys_ram"))
         
         # Chance for new quest (5% every 5s approx)
         if random.random() < 0.05:
@@ -456,7 +485,7 @@ class PetEngine(QObject):
             if self.shop_win: self.shop_win.refresh_shop()
             if self.inv_win: self.inv_win.refresh(self.stats.data)
             return True
-        else: self.window.show_emote("angry"); self.window.create_floating_text("Брак монет!", "#FF0000"); self.sound.play("angry"); return False
+        else: self.window.show_emote("angry"); self.window.create_floating_text(self._t("shop_no_money"), "#FF0000"); self.sound.play("angry"); return False
     def open_inventory(self):
         from ui.inventory import InventoryWindow
         if not self.inv_win: self.inv_win = InventoryWindow(self.stats.data)
@@ -569,7 +598,7 @@ class PetEngine(QObject):
             self.stats.data["hunger"] = min(self.stats.get_max_stats(), self.stats.data["hunger"] + 5)
             self.trigger_emotion("eat", 2000)
             self.sound.play("eat")
-            self.window.create_floating_text("Смакота! 🍬", "#FF69B4")
+            self.window.create_floating_text(self._t("food_delicious"), "#FF69B4")
             
         elif item in Settings.HEALTH_FOOD_STATS:
             hunger_g, health_g = Settings.HEALTH_FOOD_STATS[item]
@@ -657,7 +686,7 @@ class PetEngine(QObject):
                 return True
         else:
             # Fallback if AI not ready
-            self.talk_text("Я... не маю з'єднання з космосом (Інтернетом). 📡\n(Перевір API ключ або підключення)")
+            self.talk_text(self._t("chat_no_conn"))
             return False
 
     def open_chat(self):
@@ -677,14 +706,14 @@ class PetEngine(QObject):
         if folder:
             count = self.music_player.set_folder(folder)
             if count > 0:
-                self.window.create_floating_text(f"Завантажено: {count} 🎵", "#00BFFF")
+                self.window.create_floating_text(self._t("music_loaded", count=count), "#00BFFF")
                 self.show_music_widget()
             else:
-                self.window.create_floating_text("Тут пусто... 😕", "#FF4444")
+                self.window.create_floating_text(self._t("music_empty"), "#FF4444")
 
     def music_volume(self, vol):
         self.music_player.set_volume(vol)
-        self.window.create_floating_text(f"Гучність: {vol}%", "#00BFFF")
+        self.window.create_floating_text(self._t("music_volume", vol=vol), "#00BFFF")
         
     def show_music_widget(self):
         from ui.music_widget import MusicWidget

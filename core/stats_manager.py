@@ -9,23 +9,43 @@ class StatsManager:
         default = {
             "hunger": 100.0, "energy": 100.0, "health": 100.0, "happiness": 100.0,
             "xp": 0, "level": 1, "money": 50, "inventory": {"sandwich": 2, "ball": 1},
+            "achievements": [],
             "tasks": []
         }
-        if not os.path.exists(Settings.SAVE_PATH): return default
+        
+        # Try loading mostly recent
+        data = self._load_file(Settings.SAVE_PATH)
+        if data: return self._validate(data)
+        
+        # Try backup
+        backup_path = Settings.SAVE_PATH + ".bak"
+        if os.path.exists(backup_path):
+            logging.warning("Main save corrupt/missing, loading backup.")
+            data = self._load_file(backup_path)
+            if data: return self._validate(data)
+            
+        return default
+
+    def _load_file(self, path):
+        if not os.path.exists(path): return None
         try:
-            with open(Settings.SAVE_PATH, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                if "happiness" not in data: data["happiness"] = 100.0
-                if "money" not in data: data["money"] = 50
-                if "tasks" not in data: data["tasks"] = []
-                if "daily_tasks_completed" not in data: data["daily_tasks_completed"] = 0
-                if "last_task_date" not in data: data["last_task_date"] = ""
-                if "achievements" not in data: data["achievements"] = []
-                if "games_played" not in data: data["games_played"] = 0
-                if "minutes_worked" not in data: data["minutes_worked"] = 0
-                if "gemini_api_key" not in data: data["gemini_api_key"] = ""
-                return data
-        except: return default
+            with open(path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            logging.error(f"Failed to load stats from {path}: {e}")
+            return None
+
+    def _validate(self, data):
+        # Ensure all keys exist (migration)
+        defaults = {
+            "happiness": 100.0, "money": 50, "tasks": [],
+            "daily_tasks_completed": 0, "last_task_date": "",
+            "achievements": [], "games_played": 0,
+            "minutes_worked": 0, "gemini_api_key": ""
+        }
+        for k, v in defaults.items():
+            if k not in data: data[k] = v
+        return data
 
     def get_max_stats(self):
         # 100 + (Lvl-1)*20
@@ -109,8 +129,21 @@ class StatsManager:
     def save_stats(self):
         try:
             os.makedirs(os.path.dirname(Settings.SAVE_PATH), exist_ok=True)
-            tmp = Settings.SAVE_PATH + ".tmp"
-            with open(tmp, 'w', encoding='utf-8') as f:
+            tmp_path = Settings.SAVE_PATH + ".tmp"
+            bak_path = Settings.SAVE_PATH + ".bak"
+            
+            # Atomic Write: Write to tmp first
+            with open(tmp_path, 'w', encoding='utf-8') as f:
                 json.dump(self.data, f, indent=4, ensure_ascii=False)
-            os.replace(tmp, Settings.SAVE_PATH)
-        except: pass
+                
+            # If successful, backup old save and rename new one
+            if os.path.exists(Settings.SAVE_PATH):
+                try:
+                    os.replace(Settings.SAVE_PATH, bak_path)
+                except OSError:
+                    pass # Backup failed, but we still want to save new data
+            
+            os.replace(tmp_path, Settings.SAVE_PATH)
+            
+        except Exception as e:
+            logging.error(f"Failed save_stats: {e}")

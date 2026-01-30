@@ -30,18 +30,33 @@ class ResourceManager:
                 # Check for Sprite Sheet (convention: foldername.png inside folder)
                 sheet_path = os.path.join(path, f"{folder}.png")
                 
+            try:
                 if os.path.exists(sheet_path):
                     # Default: 2 rows, 5 cols
                     rows, cols = 2, 5
-                    if folder == "training": cols = 4 
+                    if folder in ["training", "sing"]: cols = 4 
+                    if folder in ["eat", "tired", "sad", "angry"]: rows, cols = 1, 5
+                    if folder in ["drag"]: rows, cols = 2, 3
+                    if folder in ["scared", "shy"]: rows, cols = 1, 6
+                    if folder in ["excited", "dance", "playing", "working"]: cols = 3 
+                    if folder == "sleep": cols = 2
                     
-                    self.load_from_sheet(folder, sheet_path, rows, cols)
+                    # Specific Overrides
+                    if folder in ["idle", "walk_left", "walk_right", "drag"]: rows, cols = 2, 3
+                    if folder == "training": rows, cols = 2, 5 
+                    
+                    if not self.load_from_sheet(folder, sheet_path, rows, cols):
+                        logger.warning(f"Failed to load sprite sheet: {folder}")
                 else:
                     # Fallback to Sequence Loading
                     frames = self._load_folder(path)
                     if frames:
                         self.animations[folder] = frames
                         logger.info(f"Loaded sequence: {folder}")
+                    else:
+                        logger.warning(f"No valid frames found for: {folder}")
+            except Exception as e:
+                logger.error(f"Error loading animation '{folder}': {e}")
 
     def _determine_reference_height(self):
         """Шукає walk_right або перше доступне зображення"""
@@ -56,12 +71,20 @@ class ResourceManager:
         # Fallback до константи з Settings
         return Settings.DEFAULT_SPRITE_HEIGHT
 
-    def _load_folder(self, path, canvas_size):
+    def _load_folder(self, path):
         frames = []
+        folder_name = os.path.basename(path)
+        scale_mult = Settings.ANIMATION_SCALES.get(folder_name, 1.0)
+        target_h = int(self.ref_h * scale_mult)
+        
+        # Calculate canvas size dynamically
+        canvas_dim = int(target_h + (60 * Settings.SCALE_FACTOR * scale_mult))
+        canvas_size = QSize(canvas_dim, canvas_dim)
+        
         for f in sorted([file for file in os.listdir(path) if file.lower().endswith('.png')]):
             raw = QPixmap(os.path.join(path, f))
             if raw.isNull(): continue
-            scaled = raw.scaledToHeight(self.ref_h, Qt.TransformationMode.SmoothTransformation)
+            scaled = raw.scaledToHeight(target_h, Qt.TransformationMode.SmoothTransformation)
             canvas = QPixmap(canvas_size)
             canvas.fill(Qt.GlobalColor.transparent)
             painter = QPainter(canvas)
@@ -84,8 +107,16 @@ class ResourceManager:
         frame_w = sheet.width() // cols
         frame_h = sheet.height() // rows
         
+        logger.info(f"Loading '{name}' Sheet: {sheet.width()}x{sheet.height()} -> {rows}x{cols} ({frame_w}x{frame_h} per frame)")
+        
         frames = []
-        canvas_size = QSize(int(self.ref_h + 60*Settings.SCALE_FACTOR), int(self.ref_h + 60*Settings.SCALE_FACTOR))
+        
+        # Calculate target height and canvas size
+        scale_mult = Settings.ANIMATION_SCALES.get(name, 1.0)
+        target_h = int(self.ref_h * scale_mult)
+        
+        canvas_dim = int(target_h + (60 * Settings.SCALE_FACTOR * scale_mult))
+        canvas_size = QSize(canvas_dim, canvas_dim)
         
         for r in range(rows):
             for c in range(cols):
@@ -93,7 +124,7 @@ class ResourceManager:
                 cropped = sheet.copy(c * frame_w, r * frame_h, frame_w, frame_h)
                 
                 # Scale and Center
-                scaled = cropped.scaledToHeight(self.ref_h, Qt.TransformationMode.SmoothTransformation)
+                scaled = cropped.scaledToHeight(target_h, Qt.TransformationMode.SmoothTransformation)
                 canvas = QPixmap(canvas_size)
                 canvas.fill(Qt.GlobalColor.transparent)
                 painter = QPainter(canvas)

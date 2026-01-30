@@ -1,21 +1,30 @@
 import logging
-import google.generativeai as genai
 from config.settings import Settings
+
+try:
+    from google import genai
+    HAS_GENAI = True
+except ImportError:
+    HAS_GENAI = False
 
 class AIClient:
     def __init__(self):
-        self.model = None
+        self.client = None
         self.chat = None
         self.is_ready = False
         self.logger = logging.getLogger("AIClient")
 
     def init_ai(self, api_key):
+        if not HAS_GENAI:
+            self.logger.error("Library 'google-genai' missing. Run: pip install google-genai")
+            return False
+
         if not api_key:
             self.logger.warning("API Key missing.")
             return False
             
         try:
-            genai.configure(api_key=api_key)
+            self.client = genai.Client(api_key=api_key)
             
             # System Prompt (Persona - Asuna Yuuki)
             system_prompt = """You are Asuna Yuuki (from Sword Art Online), a virtual companion on the user's desktop.
@@ -34,16 +43,15 @@ class AIClient:
             - Do not be a generic AI. Be ASUNA.
             - If the user works too much, scold them gently."""
             
-            self.model = genai.GenerativeModel(
-                model_name="gemini-flash-latest",
-                system_instruction=system_prompt
+            # Start Chat Session
+            self.chat = self.client.chats.create(
+                model="gemini-2.0-flash",
+                config={"system_instruction": system_prompt},
+                history=[]
             )
             
-            self.chat = self.model.start_chat(history=[])
             self.is_ready = True
-            self.logger.info("Gemini AI initialized successfully.")
-            return True
-            self.logger.info("Gemini AI initialized successfully.")
+            self.logger.info("Gemini AI initialized successfully (New SDK).")
             return True
         except Exception as e:
             self.logger.error(f"Failed to init AI: {e}")
@@ -57,10 +65,8 @@ class AIClient:
         try:
             response = self.chat.send_message(user_input)
             
-            # Safety check for empty responses
-            if not response.parts:
-                self.logger.warning(f"AI returned no parts. Finish reason: {response.candidates[0].finish_reason}")
-                return "..." # Return silence or simple response instead of crashing
+            if not response or not response.text:
+                return "..."
                 
             return response.text.strip()
         except Exception as e:

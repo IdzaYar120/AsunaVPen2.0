@@ -11,10 +11,18 @@ class Settings:
     
     # AI CONFIG
     GEMINI_API_KEY = "" # User will paste key here or via UI
-    SCALE_FACTOR = 0.85
+    SCALE_FACTOR = 1.0
     DEFAULT_SPRITE_HEIGHT = 200    
-
-    DEFAULT_SPRITE_HEIGHT = 200    
+    
+    # Per-animation scale adjustments (1.0 = default 200px)
+    # Tweak these numbers to make animations look uniform
+    ANIMATION_SCALES = {
+        "idle": 1.5, "walk_left": 1.5, "walk_right": 1.5,
+        "feed": 1.0, "eating": 1.5, "sleep": 1.5,
+        "playing": 1.0, "working": 1.0, "scared": 1.5,
+        "shy": 1.5, "angry": 1.5, "tired": 1.5, "training": 2.0,
+        "drag": 1.5, "excited": 2.0, "dance": 1.5, "sing": 1.5, "sad": 1.5
+    }
     
     # --- EXPENSES BALANCE ---
     STATS_DECAY_BASE = 0.003

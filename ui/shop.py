@@ -7,10 +7,10 @@ from config.settings import Settings
 class ShopItem(QWidget):
     def __init__(self, item_id, price, level, money, on_buy_callback):
         super().__init__()
-        self.setFixedSize(90, 115) # Slightly larger to prevent clipping
+        self.setFixedSize(90, 130) # Increased height for larger icons
         
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(2, 2, 2, 2) # Add margin so border doesn't clip
+        main_layout.setContentsMargins(2, 2, 2, 2)
         main_layout.setSpacing(0)
         
         # Determine Color Border based on rarity/type
@@ -41,11 +41,11 @@ class ShopItem(QWidget):
         # Icon
         path = os.path.join(Settings.ICONS_DIR, f"{item_id}.png")
         icon = QLabel()
-        icon.setFixedSize(50, 50)
+        icon.setFixedSize(60, 60) # Larger icon area
         icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
         if os.path.exists(path):
-            pix = QPixmap(path).scaled(45, 45, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            pix = QPixmap(path).scaled(55, 55, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
             if is_locked:
                 img = pix.toImage(); img.convertTo(QImage.Format.Format_Grayscale8); pix = QPixmap.fromImage(img)
                 pix.setDevicePixelRatio(2.0)

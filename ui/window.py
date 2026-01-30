@@ -3,6 +3,7 @@ from PyQt6.QtCore import Qt, QPoint, QTimer, QPropertyAnimation, QEasingCurve, Q
 from PyQt6.QtGui import QPixmap, QPainter, QColor, QPen, QIntValidator, QImage
 import os, time, random
 from config.settings import Settings
+from config.ui_settings import UiSettings
 
 class HappinessGauge(QWidget):
     def __init__(self, parent=None):
@@ -216,8 +217,8 @@ class PetWindow(QWidget):
         self.engine = None
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground); self.setAcceptDrops(True)
-        self.header_spacing = int(80 * Settings.SCALE_FACTOR)
-        self.label = QLabel(self); self.emote_label = QLabel(self); self.emote_label.setFixedSize(60, 60); self.emote_label.hide()
+        self.header_spacing = int(UiSettings.HEADER_HEIGHT * Settings.SCALE_FACTOR)
+        self.label = QLabel(self); self.emote_label = QLabel(self); self.emote_label.setFixedSize(50, 50); self.emote_label.hide()
         self.bubble = None
         self.happiness_gauge = HappinessGauge(self); self.happiness_gauge.hide()
         self.timer_label = QLabel(self); self.timer_label.setFixedWidth(70); self.timer_label.hide()
@@ -278,17 +279,39 @@ class PetWindow(QWidget):
         
         # FIX: Avoid resizing while dragging to prevent coordinate jitter
         if not self.is_dragging:
-            if self.size() != (nw, nh): self.setFixedSize(nw, nh)
+            if self.size() != QSize(nw, nh):
+                # Calculate anchor point (Bottom-Center)
+                current_bottom = self.y() + self.height()
+                current_center_x = self.x() + (self.width() // 2)
+                
+                # Calculate new Top-Left to maintain anchor
+                new_x = current_center_x - (nw // 2)
+                new_y = current_bottom - nh
+                
+                self.setFixedSize(nw, nh)
+                self.move(new_x, new_y)
         
-        # If dragging, we might clip if sprite is much larger, but stability is priority.
-        # Ensure label matches pixmap size, but don't force window resize if dragging.
-        
-        self.label.setGeometry(0, self.header_spacing, px.width(), px.height())
+        # Center the label vertically to keep it stable
+        lbl_x = (self.width() - px.width()) // 2
+        self.label.setGeometry(lbl_x, self.header_spacing, px.width(), px.height())
         self.label.setPixmap(px)
         
-        self.bar_xp.setGeometry(0, 0, self.width(), 4)
-        self.emote_label.move((self.width()-60)//2, 10)
-        self.happiness_gauge.move(self.width()-55, 10)
+        # UI Sizing constraints
+        max_ui_width = int(200 * Settings.SCALE_FACTOR)
+        bar_width = min(self.width(), max_ui_width)
+        bar_x = (self.width() - bar_width) // 2
+        
+        # Dynamic UI Positioning (Anchor from Bottom vs Top Clamp)
+        # XP Bar: Offset from bottom
+        xp_y = max(self.header_spacing - 10, self.height() - UiSettings.OFFSET_XP_BAR)
+        self.bar_xp.setGeometry(bar_x, xp_y, bar_width, 4)
+        
+        # Emotes / Clouds / Gauge: Offset from bottom (Higher than XP)
+        emo_y = max(self.header_spacing - 10, self.height() - UiSettings.OFFSET_EMOTES)
+        
+        # Position Emote and Gauge using emo_y
+        self.emote_label.move((self.width()-50)//2, emo_y)
+        self.happiness_gauge.move(self.width()-55, emo_y)
         
         self.bar_xp.raise_()
         self.emote_label.raise_()
@@ -350,7 +373,10 @@ class PetWindow(QWidget):
         
         global_pos = self.mapToGlobal(QPoint(0, 0))
         x = global_pos.x() + (self.width() - self.bubble.width()) // 2
-        y = global_pos.y() + self.header_spacing - self.bubble.height() - 10
+        
+        # Anchor bubble to offset from bottom
+        rel_y = max(self.header_spacing - 10, self.height() - UiSettings.OFFSET_BUBBLE)
+        y = global_pos.y() + rel_y - self.bubble.height() - 10
         
         # Screen Boundary Check
         screen_geo = QApplication.primaryScreen().availableGeometry()
@@ -421,6 +447,7 @@ class PetWindow(QWidget):
             self.check_input_timer.stop(); 
             if self.custom_input.result: self.engine.start_work_session(self.custom_input.result)
             self.custom_input.deleteLater(); self.custom_input = None
+    
     def create_floating_text(self, text, color="#FFD700"):
         # Determine global coordinates
         g_pos = self.mapToGlobal(QPoint(0, 0))
@@ -430,7 +457,10 @@ class PetWindow(QWidget):
         offset_x = random.choice([-1, 1]) * random.randint(40, 70)
         
         x = g_pos.x() + (self.width() // 2) + offset_x - 30 # -30 is approx half text width
-        y = g_pos.y() + self.header_spacing + 20
+        
+        # Anchor to 330px from bottom (same as emotes)
+        rel_y = max(self.header_spacing - 10, self.height() - UiSettings.OFFSET_FLOATING_TEXT)
+        y = g_pos.y() + rel_y
         
         # Create independent text window
         # We don't store reference, it deletes itself after anim

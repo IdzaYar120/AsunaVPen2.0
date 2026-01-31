@@ -81,13 +81,33 @@ class TaskManager:
     def complete_quest(self, quest):
         self.remove_task(quest["id"])
         
-        # Anti-Farm / Daily limit logic - Less strict for quests as they consume resources
-        return {
+        # --- Daily Logic ---
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        last_date = self.stats.data.get("last_task_date", "")
+        
+        if last_date != today_str:
+            self.stats.data["daily_tasks_completed"] = 0
+            self.stats.data["last_task_date"] = today_str
+            
+        self.stats.data["daily_tasks_completed"] += 1
+        count = self.stats.data["daily_tasks_completed"]
+        
+        rewards = {
             "xp": quest["xp"],
             "money": quest["money"],
             "happiness": quest.get("happiness", 10),
-            "text": quest["text"]
+            "text": quest["text"],
+            "bonus_applied": False
         }
+        
+        # Daily Bonus (e.g. 5th task)
+        if count == 5:
+            rewards["money"] += 100
+            rewards["xp"] += 50
+            rewards["bonus_applied"] = True
+            
+        self.stats.save_stats()
+        return rewards
         
     def remove_task(self, task_id):
         self.stats.data["tasks"] = [

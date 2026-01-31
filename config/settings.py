@@ -21,7 +21,7 @@ class Settings:
         "eat": 1.0, "sleep": 1.0,
         "playing": 1.0, "working": 1.0, "scared": 1.0,
         "shy": 1.0, "angry": 1.0, "tired": 1.0, "training": 2.0,
-        "drag": 1.0, "excited": 1.0, "dance": 1.0, "sing": 1.0, "sad": 1.0,
+        "drag": 1.0, "excited": 1.0, "dance": 1.0, "sing": 1.3, "sad": 1.0,
         "cooking": 1.0
     }
     
@@ -292,5 +292,6 @@ class Settings:
         "sleep": "sleep.wav",
         "coin_game": "coin_game.wav",
         "quest": "quest.wav",
-        "slots": "slots.wav"
+        "slots": "slots.wav",
+        "cook": "cook.wav"
     }

@@ -246,6 +246,9 @@ class PetEngine(QObject):
             QTimer.singleShot(delay_victory + 500, lambda r=r: self.window.create_floating_text(f"+{r['money']} 💰  +{r['xp']} XP", "#FFD700"))
             QTimer.singleShot(delay_victory + 1500, lambda h=hap: self.window.create_floating_text(f"+{h} ❤️", "#FF69B4"))
             
+            if r.get("bonus_applied"):
+                 QTimer.singleShot(delay_victory + 2000, lambda: self.window.create_floating_text("🎁 DAILY BONUS! 🎁", "#FF00FF"))
+
             QTimer.singleShot(delay_victory, lambda: self.trigger_emotion("excited", 4000))
             QTimer.singleShot(delay_victory, lambda: self.sound.play("happy"))
         
@@ -585,6 +588,7 @@ class PetEngine(QObject):
         self.cooking_window.show()
         self.cooking_window.raise_()
         
+        
         self.set_state("cooking")
         self.window.show_emote("cooking")
 
@@ -616,6 +620,7 @@ class PetEngine(QObject):
 
     def start_dancing(self):
         if self.current_state in ["sleep", "tired", "working"]: return
+        if self.current_state in ["dance", "sing"]: return # Prevent spamming
         if not self.is_emotion_locked:
             # Randomly pick dance or sing if available
             options = ["dance"]
@@ -680,6 +685,13 @@ class PetEngine(QObject):
             self.sound.stop("drag")
         if self.current_state == "sleep" and s != "sleep":
             self.sound.stop("sleep")
+            
+        # Cooking Sound Logic (Auto-Stop/Start)
+        if self.current_state == "cooking" and s != "cooking":
+            self.sound.stop("cook")
+        if s == "cooking" and self.current_state != "cooking":
+            self.sound.start_loop("cook")
+            
         if self.current_state != s: self.current_state, self.frame_index = s, 0
     def handle_click(self):
         self.reset_interaction()
@@ -724,6 +736,18 @@ class PetEngine(QObject):
                 
         text = self._t(QUOTES[key])
         self.window.show_bubble(text)
+        
+        # Trigger animation if text matches specific actions
+        txt_lower = text.lower()
+        if "хочу співати" in txt_lower or "хочеться співати" in txt_lower or "співати!" in txt_lower:
+            if not self.is_emotion_locked:
+                self.set_state("sing")
+                self.window.spawn_particles("🎵", 8, "#00BFFF")
+                
+        elif "хочу танцювати" in txt_lower or "потанцювати" in txt_lower or "танцювати!" in txt_lower:
+            if not self.is_emotion_locked:
+                self.set_state("dance")
+                self.window.spawn_particles("✨", 8, "#FFD700")
 
     def handle_response(self, key):
         """Handle bubble response selection."""

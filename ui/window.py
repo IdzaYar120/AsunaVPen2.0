@@ -32,7 +32,7 @@ class AchievementToast(QWidget):
         
         icon = QLabel()
         icon.setFixedSize(45, 45)
-        path = os.path.join(Settings.ICONS_DIR, icon_name)
+        path = Settings.get_icon_path(icon_name)
         if os.path.exists(path):
             icon.setPixmap(QPixmap(path).scaled(45, 45, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
         layout.addWidget(icon)
@@ -81,7 +81,7 @@ class AchievementToast(QWidget):
 class SpeechBubble(QWidget):
     response_selected = pyqtSignal(str) # "happy", "neutral", "sad"
 
-    def __init__(self, text, parent=None):
+    def __init__(self, text, parent=None, options=None):
         super().__init__() # Independent window (no parent) for TopLevel behavior
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
@@ -114,18 +114,34 @@ class SpeechBubble(QWidget):
         btn_layout = QHBoxLayout()
         btn_layout.setContentsMargins(0, 5, 0, 0)
         
-        for emo, key in [("❤️", "happy"), ("😐", "neutral"), ("💔", "sad")]:
-            btn = QPushButton(emo)
-            btn.setFixedSize(30, 30)
-            btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn.setStyleSheet("""
-                QPushButton {
-                    background: #f0f0f0; border: 1px solid #ccc; border-radius: 15px; font-size: 16px;
-                }
-                QPushButton:hover { background: #e0e0e0; border-color: #999; }
-            """)
-            btn.clicked.connect(lambda _, k=key: self.on_click(k))
-            btn_layout.addWidget(btn)
+        if options:
+            # Custom Options (Label, Key)
+            for label, key in options:
+                btn = QPushButton(label)
+                btn.setFixedSize(50, 30)
+                btn.setCursor(Qt.CursorShape.PointingHandCursor)
+                btn.setStyleSheet("""
+                    QPushButton {
+                        background: #f0f0f0; border: 1px solid #ccc; border-radius: 8px; font-size: 12px; font-weight: bold; color: #333;
+                    }
+                    QPushButton:hover { background: #FFD700; border-color: #DAA520; color: black; }
+                """)
+                btn.clicked.connect(lambda _, k=key: self.on_click(k))
+                btn_layout.addWidget(btn)
+        else:
+            # Default Emotions
+            for emo, key in [("❤️", "happy"), ("😐", "neutral"), ("💔", "sad")]:
+                btn = QPushButton(emo)
+                btn.setFixedSize(30, 30)
+                btn.setCursor(Qt.CursorShape.PointingHandCursor)
+                btn.setStyleSheet("""
+                    QPushButton {
+                        background: #f0f0f0; border: 1px solid #ccc; border-radius: 15px; font-size: 16px;
+                    }
+                    QPushButton:hover { background: #e0e0e0; border-color: #999; }
+                """)
+                btn.clicked.connect(lambda _, k=key: self.on_click(k))
+                btn_layout.addWidget(btn)
             
         c_layout.addLayout(btn_layout)
         layout.addWidget(container)
@@ -356,14 +372,14 @@ class PetWindow(QWidget):
             self.emote_timer.stop()
             self.emote_timer.start(3000)
 
-    def show_bubble(self, text):
+    def show_bubble(self, text, options=None):
         if self.bubble:
             try:
                 self.bubble.deleteLater()
             except RuntimeError:
                 pass
         
-        self.bubble = SpeechBubble(text, self)
+        self.bubble = SpeechBubble(text, self, options=options)
         self.bubble.response_selected.connect(self.engine.handle_response)
         self.bubble.destroyed.connect(lambda: setattr(self, 'bubble', None))
         

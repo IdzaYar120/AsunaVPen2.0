@@ -58,7 +58,7 @@ class Settings:
         
         # Food & Ingredients
         "sandwich": 15, "fried-potatoes": 12, "rice": 15, "hot-dog": 15, 
-        "salad": 20, "sushi": 30, "pasta": 35, "pizza": 40, "ramen": 50,
+        "sushi": 30, "pasta": 35, "pizza": 40, "ramen": 50,
         "meat": 15, "fish": 15, "shrimp": 20, "egg": 5, "cheese": 10, 
         "flour": 5, "milk": 8, "lettuce": 5, "tomato": 5,
         
@@ -70,19 +70,22 @@ class Settings:
         "ball": 30, "medicine": 50, "joystick": 60, "book": 30,
         "flowers": 25, "teddy-bear": 55, "sword-gift": 100, "crown": 250,
         "headphones": 150, "gem": 200, "magic-wand": 300, 
-        "love-potion": 150, "smartphone": 500,
+        "love-potion": 150, "smartphone": 500, "crystal-ball": 400,
 
         # Recipes
-        "recipe_burger": 100, "recipe_sushi_set": 150, "recipe_cake": 200,
+        "recipe_burger": 500, "recipe_sushi_set": 750, "recipe_cake": 1000,
+        "recipe_panna_cotta": 1000,
         "energy_drink": 30
     }
+    
     
     # Basic food values
     FOOD_STATS = {
         "sandwich": 20.0, "fried-potatoes": 15.0, "rice": 10.0, "hot-dog": 25.0,
         "sushi": 35.0, "pasta": 40.0, "pizza": 45.0, "ramen": 55.0,
         "chocolate": 10.0, "energy_drink": 5.0,
-        "burger": 60.0, "sushi_set": 50.0, "cake": 40.0, "salad": 30.0, 
+        "burger": 60.0, "sushi_set": 50.0, "cake": 40.0, "salad": 30.0,
+        "panna-cotta": 20.0, 
         "burnt_food": 5.0,
         # Ingredients (can be eaten raw but low value)
         "meat": 5, "fish": 5, "shrimp": 5, "egg": 2, "cheese": 5, "flour": 1, "milk": 5, "lettuce": 5, "tomato": 5, "rice": 2
@@ -105,7 +108,8 @@ class Settings:
     GIFT_STATS = {
         "flowers": 25, "teddy-bear": 50, "sword-gift": 80, "crown": 100,
         "book": 20, "headphones": 40, "gem": 50, "magic-wand": 60,
-        "love-potion": 100, "smartphone": 75, "ball": 15, "joystick": 30
+        "love-potion": 100, "smartphone": 75, "ball": 15, "joystick": 30,
+        "crystal-ball": 150
     }
     
     SHOP_UNLOCKS = {
@@ -124,7 +128,8 @@ class Settings:
         # Level 5
         "pizza": 5, "ramen": 5, "chocolate": 5, "candy-apple": 5, "teddy-bear": 5, "gem": 5,
         # High Level
-        "joystick": 7, "magic-wand": 7, "love-potion": 8, "sword-gift": 10, "smartphone": 10, "crown": 15
+        "joystick": 7, "magic-wand": 7, "love-potion": 8, "sword-gift": 10, "smartphone": 10, "crown": 15,
+        "crystal-ball": 15
     }
     
     ACHIEVEMENTS = {
@@ -143,7 +148,12 @@ class Settings:
         "worker": {"name": "Трудоголік", "desc": "Працювати 60 хв сумарно", "icon": "working.png"},
         "manager": {"name": "Менеджер", "desc": "Працювати 5 годин сумарно", "icon": "working.png"},
         
-        "hoarder": {"name": "Колекціонер", "desc": "Мати 20 предметів в інвентарі", "icon": "ball.png"}
+        "hoarder": {"name": "Колекціонер", "desc": "Мати 20 предметів в інвентарі", "icon": "ball.png"},
+        
+        # Cooking Achievements
+        "chef": {"name": "Шеф-кухар", "desc": "Приготувати 5 страв", "icon": "recipe_burger.png"},
+        "gourmet": {"name": "Гурман", "desc": "З'їсти 10 приготованих страв", "icon": "cake.png"},
+        "master_chef": {"name": "Майстер Шеф", "desc": "Приготувати 20 страв", "icon": "crown.png"}
     }
     
     PLAY_ITEMS = ["ball", "joystick"]
@@ -171,67 +181,91 @@ class Settings:
     UI_DIR = os.path.join(BASE_DIR, "assets", "ui", "emotes")
     ICONS_DIR = os.path.join(BASE_DIR, "assets", "ui", "icons")
     SOUNDS_DIR = os.path.join(BASE_DIR, "assets", "sounds")
-    
+
+    @staticmethod
+    def get_icon_path(icon_name):
+        """Recursively searches for an icon in ICONS_DIR and its subfolders."""
+        if not icon_name.endswith(".png"): icon_name += ".png"
+        
+        # 1. Check root first
+        root_path = os.path.join(Settings.ICONS_DIR, icon_name)
+        if os.path.exists(root_path): return root_path
+        
+        # 2. Recursive search
+        for root, dirs, files in os.walk(Settings.ICONS_DIR):
+            if icon_name in files:
+                return os.path.join(root, icon_name)
+        
+        # 3. Fallback for Recipes (if specific icon missing, use generic scroll)
+        if icon_name.startswith("recipe_"):
+            scroll_path = Settings.get_icon_path("recipe_scroll.png")
+            if os.path.exists(scroll_path): return scroll_path
+                
+        return root_path
+
     # Descriptions and Effects
     ITEM_DESC = {
-        "sandwich": "Смачний сендвіч з соусом. (+20 Hunger)",
-        "ball": "Червоний м'ячик для гри. (+20 Happiness)",
-        "medicine": "Ліки від застуди. (+30 Health)",
-        "chocolate": "Солодка плитка шоколаду. (+10 Hunger, +10 Happiness)",
-        "energy_drink": "Заряд бадьорості! (+40 Energy, -5 Health)",
-        "lollipop": "Смачний льодяник. (+10 Hunger, +10 Happiness)",
-        "toffee": "М'яка іриска. (+15 Hunger, +10 Happiness)",
-        "gummy-bear": "Ведмедик гаммі. (+20 Hunger, +15 Happiness)",
-        "donut": "Доцент з глазур'ю. (+10 Hunger, +5 Happiness)",
-        "candy-apple": "Яблуко в карамелі. (+30 Hunger, +20 Happiness)",
-        "croissant": "Французький круасан. (+35 Hunger, +15 Happiness)",
+        "panna-cotta": "items.panna-cotta",
+        "sandwich": "items.sandwich",
+        "ball": "items.ball",
+        "medicine": "items.medicine",
+        "chocolate": "items.chocolate",
+        "energy_drink": "items.energy_drink",
+        "lollipop": "items.lollipop",
+        "toffee": "items.toffee",
+        "gummy-bear": "items.gummy-bear",
+        "donut": "items.donut",
+        "candy-apple": "items.candy-apple",
+        "croissant": "items.croissant",
         
-        "fried-potatoes": "Смажена картопля. (+15 Hunger)",
-        "rice": "Порція білого рису. (+10 Hunger)",
-        "hot-dog": "Хот-дог з гірчицею. (+25 Hunger)",
-        "sushi": "Класичні роли. (+35 Hunger, +5 Happiness)",
-        "pasta": "Італійська паста. (+40 Hunger)",
-        "pizza": "Гаряча піца! (+45 Hunger, +10 Happiness)",
-        "ramen": "Автентичний рамен. (+55 Hunger, +10 Happiness)",
+        "fried-potatoes": "items.fried-potatoes",
+        "rice": "items.rice",
+        "hot-dog": "items.hot-dog",
+        "sushi": "items.sushi",
+        "pasta": "items.pasta",
+        "pizza": "items.pizza",
+        "ramen": "items.ramen",
 
-        "blueberry": "Свіжа лохина. (+1 Health)",
-        "apple": "Стигле яблуко. (+1 Hunger, +1 Health)",
-        "tomato": "Червоний томат. (+2 Hunger, +1 Health)",
-        "banana": "Поживний банан. (+4 Hunger, +1 Health)",
-        "cucumber": "Свіжий огірок. (+1 Hunger, +1 Health)",
-        "nuts": "Мікс горіхів. (+6 Hunger, +3 Health)",
-        "pomegranate": "Стиглий гранат. (+1 Hunger, +4 Health)",
-        "dragon-fruit": "Екзотичний пітайя. (+2 Hunger, +3 Health)",
-        "pumpkin": "Золотистий гарбуз. (+3 Hunger, +6 Health)",
+        "blueberry": "items.blueberry",
+        "apple": "items.apple",
+        "tomato": "items.tomato",
+        "banana": "items.banana",
+        "cucumber": "items.cucumber",
+        "nuts": "items.nuts",
+        "pomegranate": "items.pomegranate",
+        "dragon-fruit": "items.dragon-fruit",
+        "pumpkin": "items.pumpkin",
 
-        "joystick": "Ігрова консоль. (+60 Happiness)",
-        "book": "Цікава книга. (+20 Happiness, +5 XP)",
-        "flowers": "Букет квітів. (+25 Happiness)",
-        "teddy-bear": "Плюшевий ведмедик. (+50 Happiness)",
-        "sword-gift": "Декоративний меч. (+80 Happiness)",
-        "crown": "Справжня корона! (+100 Happiness)",
-        "headphones": "Музичні навушники. (+40 Happiness)",
-        "gem": "Коштовний камінь. (+50 Happiness)",
-        "magic-wand": "Магічна паличка. (+60 Happiness)",
-        "love-potion": "Любовне зілля ❤️ (+100 Happiness)",
-        "smartphone": "Сучасний смартфон. (+75 Happiness)",
+        "joystick": "items.joystick",
+        "book": "items.book",
+        "flowers": "items.flowers",
+        "teddy-bear": "items.teddy-bear",
+        "sword-gift": "items.sword-gift",
+        "crown": "items.crown",
+        "headphones": "items.headphones",
+        "gem": "items.gem",
+        "magic-wand": "items.magic-wand",
+        "love-potion": "items.love-potion",
+        "smartphone": "items.smartphone",
+        "crystal-ball": "items.crystal-ball",
 
-        "meat": "Свіже м'ясо для кулінарії.",
-        "fish": "Свіжа риба.",
-        "shrimp": "Великі креветки.",
-        "egg": "Куряче яйце.",
-        "cheese": "Шматочок сиру.",
-        "flour": "Пшеничне борошно.",
-        "milk": "Свіже молоко.",
-        "lettuce": "Лист салату.",
-        "recipe_burger": "Рецепт приготування бургера.",
-        "recipe_sushi_set": "Секрети японської кухні (Суші).",
-        "recipe_cake": "Мистецтво випікання тортів.",
-        "burger": "Домашній бургер. (+60 Hunger, +10 Happiness)",
-        "sushi_set": "Набір суші. (+50 Hunger, +15 Happiness)",
-        "cake": "Святковий торт! (+40 Hunger, +30 Happiness)",
-        "salad": "Легкий салат. (+30 Hunger, +5 Health)",
-        "burnt_food": "Щось пішло не так... 🤢 (+5 Hunger, -5 Health)"
+        "meat": "items.meat",
+        "fish": "items.fish",
+        "shrimp": "items.shrimp",
+        "egg": "items.egg",
+        "cheese": "items.cheese",
+        "flour": "items.flour",
+        "milk": "items.milk",
+        "lettuce": "items.lettuce",
+        "recipe_burger": "items.recipe_burger",
+        "recipe_sushi_set": "items.recipe_sushi_set",
+        "recipe_cake": "items.recipe_cake",
+        "recipe_panna_cotta": "items.recipe_panna_cotta",
+        "burger": "items.burger",
+        "sushi_set": "items.sushi_set",
+        "cake": "items.cake",
+        "salad": "items.salad",
+        "burnt_food": "items.burnt_food"
     }
 
     # Cooking Logic
@@ -241,10 +275,11 @@ class Settings:
         frozenset(["fish", "rice", "shrimp"]): "sushi_set",
         frozenset(["flour", "milk", "egg", "chocolate"]): "cake",
         frozenset(["lettuce", "tomato"]): "salad",
+        frozenset(["milk", "gummy-bear"]): "panna-cotta",
     }
     
     INGREDIENTS = ["meat", "fish", "shrimp", "egg", "cheese", "flour", "milk", "lettuce", "tomato", "rice"]
-    PREPARED_FOODS = ["burger", "sushi_set", "cake", "salad", "burnt_food"]
+    PREPARED_FOODS = ["burger", "sushi_set", "cake", "salad", "panna-cotta", "burnt_food"]
     
     SOUNDS = {
         "click": "click.wav",

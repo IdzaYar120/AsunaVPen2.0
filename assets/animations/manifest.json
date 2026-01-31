@@ -1,0 +1,78 @@
+{
+    "_default": {
+        "rows": 2,
+        "cols": 5
+    },
+    "idle": {
+        "rows": 2,
+        "cols": 3
+    },
+    "walk_left": {
+        "rows": 2,
+        "cols": 3
+    },
+    "walk_right": {
+        "rows": 2,
+        "cols": 3
+    },
+    "drag": {
+        "rows": 2,
+        "cols": 3
+    },
+    "cooking": {
+        "rows": 2,
+        "cols": 3
+    },
+    "dance": {
+        "rows": 2,
+        "cols": 3
+    },
+    "playing": {
+        "rows": 2,
+        "cols": 3
+    },
+    "working": {
+        "rows": 2,
+        "cols": 3
+    },
+    "sleep": {
+        "rows": 2,
+        "cols": 2
+    },
+    "excited": {
+        "rows": 2,
+        "cols": 4
+    },
+    "sing": {
+        "rows": 2,
+        "cols": 4
+    },
+    "eat": {
+        "rows": 1,
+        "cols": 5
+    },
+    "tired": {
+        "rows": 1,
+        "cols": 5
+    },
+    "sad": {
+        "rows": 1,
+        "cols": 5
+    },
+    "angry": {
+        "rows": 1,
+        "cols": 5
+    },
+    "scared": {
+        "rows": 1,
+        "cols": 6
+    },
+    "shy": {
+        "rows": 1,
+        "cols": 6
+    },
+    "training": {
+        "rows": 2,
+        "cols": 5
+    }
+}

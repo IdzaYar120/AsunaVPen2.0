@@ -13,7 +13,7 @@ class IngredientIcon(QLabel):
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setStyleSheet("background: rgba(255,255,255,10); border: 1px solid rgba(255,255,255,30); border-radius: 8px;")
         
-        path = os.path.join(Settings.ICONS_DIR, f"{item_id}.png")
+        path = Settings.get_icon_path(item_id)
         if os.path.exists(path):
             self.setPixmap(QPixmap(path).scaled(45, 45, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -51,7 +51,7 @@ class RecipeCard(QFrame):
         h_layout.setSpacing(8)
         
         icon = QLabel()
-        path = os.path.join(Settings.ICONS_DIR, f"{result_id}.png")
+        path = Settings.get_icon_path(result_id)
         if os.path.exists(path):
             icon.setPixmap(QPixmap(path).scaled(32, 32, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
         h_layout.addWidget(icon)
@@ -82,7 +82,7 @@ class RecipeCard(QFrame):
         ing_row.setAlignment(Qt.AlignmentFlag.AlignCenter)
         for ing in ingredients:
             ing_icon = QLabel()
-            ing_path = os.path.join(Settings.ICONS_DIR, f"{ing}.png")
+            ing_path = Settings.get_icon_path(ing)
             if os.path.exists(ing_path):
                 ing_icon.setPixmap(QPixmap(ing_path).scaled(22, 22, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
                 ing_icon.setToolTip(ing.replace("_", " ").title())
@@ -307,6 +307,8 @@ class CookingWindow(QWidget):
             recipe_id = f"recipe_{result_id}"
             is_unlocked = recipe_id in unlocked
             
+            if not is_unlocked: continue
+            
             # Find ingredients for this recipe in Settings
             ingredients = []
             for ing_set, res_id in Settings.COOKING_RECIPES.items():
@@ -412,8 +414,10 @@ class CookingWindow(QWidget):
                 self.engine.set_state("angry")
             else:
                 self.engine.set_state("cooking")
+                self.engine.check_quests("cook", result) # Trigger quest check
         self.clear_pot()
         self.refresh_inventory()
+        self.refresh_recipes()
 
     def on_recipe_click(self, recipe_id):
         # Expansion handled by RecipeCard

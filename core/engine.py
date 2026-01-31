@@ -51,12 +51,13 @@ class PetEngine(QObject):
         self.current_state, self.direction, self.frame_index = "idle", 1, 0
         self.last_anim_time = time.time() * 1000
         self.is_emotion_locked = False
-        self.inv_win, self.shop_win, self.todo_win, self.minigame_win, self.slots_win, self.chat_win = None, None, None, None, None, None
+        self.inventory_window, self.shop_win, self.todo_win, self.minigame_win, self.slots_win, self.chat_win = None, None, None, None, None, None
         self.ach_win = None # Initialize AchievementWindow
         self.music_widget = None
         self.last_window_title = ""
         self.last_window_check = 0
         self.last_window_reaction_time = 0
+        self.last_game_time = 0
         
         # Interaction State
         self.click_count, self.last_click_time, self.drag_start_time = 0, 0, 0
@@ -92,9 +93,22 @@ class PetEngine(QObject):
             self.lang = {}
 
     def _t(self, key, **kwargs):
-        val = self.lang.get(key, key)
+        keys = key.split(".")
+        val = self.lang
+        for k in keys:
+            if isinstance(val, dict):
+                val = val.get(k, key)
+            else:
+                val = key
+                break
+        
+        if val == key and "." in key:
+            # Fallback if key not found but has dots (return key itself usually)
+            return key
+            
         if isinstance(val, list): return random.choice(val)
-        return val.format(**kwargs)
+        if isinstance(val, str): return val.format(**kwargs)
+        return str(val)
 
     def update_loop(self):
         # Update UI with support for dynamic MAX stats
@@ -118,6 +132,13 @@ class PetEngine(QObject):
         if time.time() - self.last_window_check > 5:
             self.check_active_window()
             self.last_window_check = time.time()
+            
+            # Random Event: Guessing Game (Check cooldown + chance)
+            # Ensure at least 10 minutes between games to prevent spam
+            if (time.time() - self.last_game_time > 600) and self.current_state == "idle":
+                if random.random() < 0.05: # 5% chance every 5s if cooldown passed
+                    self.start_guessing_game()
+                    self.last_game_time = time.time()
 
         # State Priorities
         if self.window.is_dragging:
@@ -288,6 +309,9 @@ class PetEngine(QObject):
                 self.window.create_floating_text("+30 ❤️", "#FF69B4")
                 if self.stats.add_xp(Settings.PLAY_XP_REWARD): self.trigger_levelup()
         else: # Food / Sweets / Healthy
+            if i_id in Settings.PREPARED_FOODS:
+                self.stats.data["eaten_cooked"] = self.stats.data.get("eaten_cooked", 0) + 1
+            
             is_sweet = i_id in Settings.SWEET_STATS
             is_healthy = i_id in Settings.HEALTH_FOOD_STATS
             
@@ -447,7 +471,15 @@ class PetEngine(QObject):
         if worked >= 60: self._try_unlock("worker")
         if worked >= 300: self._try_unlock("manager")
         
-        # 6. Hoarder (Inventory Count)
+        # 6. Cooking & Eating
+        cooked = self.stats.data.get("cooked_count", 0)
+        if cooked >= 5: self._try_unlock("chef")
+        if cooked >= 20: self._try_unlock("master_chef")
+        
+        eaten = self.stats.data.get("eaten_cooked", 0)
+        if eaten >= 10: self._try_unlock("gourmet")
+        
+        # 7. Hoarder (Inventory Count)
         total_items = sum(self.stats.data.get("inventory", {}).values())
         if total_items >= 20: self._try_unlock("hoarder")
 
@@ -508,7 +540,7 @@ class PetEngine(QObject):
             self.stats.save_stats()
             
             if self.shop_win: self.shop_win.refresh_shop()
-            if self.inv_win: self.inv_win.refresh(self.stats.data)
+            if self.inventory_window: self.inventory_window.refresh()
             return True
         else:
             self.window.show_emote("angry")
@@ -517,8 +549,14 @@ class PetEngine(QObject):
             return False
     def open_inventory(self):
         from ui.inventory import InventoryWindow
-        if not self.inv_win: self.inv_win = InventoryWindow(self.stats.data)
-        self.inv_win.refresh(self.stats.data); self.inv_win.move(self.window.x() - self.inv_win.width() - 20, self.window.y() + 80); self.inv_win.show() if self.inv_win.isHidden() else self.inv_win.hide()
+        if not self.inventory_window:
+            self.inventory_window = InventoryWindow(self)
+        
+        self.inventory_window.refresh()
+        
+        self.window.position_window(self.inventory_window)
+        self.inventory_window.show()
+        self.inventory_window.raise_()
     def open_shop(self):
         from ui.shop import ShopWindow
         if not self.shop_win: self.shop_win = ShopWindow(self)
@@ -549,7 +587,7 @@ class PetEngine(QObject):
     def open_todo_list(self):
         from ui.todo_list import TodoWindow
         if not self.todo_win:
-            self.todo_win = TodoWindow(self.task_manager)
+            self.todo_win = TodoWindow(self.task_manager, self)
         
         if self.todo_win.isHidden():
             self.todo_win.refresh_list()
@@ -605,18 +643,20 @@ class PetEngine(QObject):
 
     def talk(self, auto=False):
         """params: auto - if triggered automatically by AI"""
+        key = "idle"
+        
         if self.current_state == "sleep":
-            text = random.choice(QUOTES["sleep"])
+            key = "sleep"
         elif self.work_timer.isActive():
-            text = random.choice(QUOTES["work"])
+            key = "work"
         elif self.stats.data["hunger"] < 50:
-            text = random.choice(QUOTES["hungry"])
+            key = "hungry"
         elif self.stats.data["energy"] < 30:
-            text = random.choice(QUOTES["tired"])
+            key = "tired"
         elif self.stats.data["happiness"] > 80:
-            text = random.choice(QUOTES["happy"])
+            key = "happy"
         elif self.stats.data["happiness"] < 40:
-            text = random.choice(QUOTES["sad"])
+            key = "sad"
         else:
             # Time of day based + random factor
             h = datetime.now().hour
@@ -626,10 +666,12 @@ class PetEngine(QObject):
             
             # 50/50 mix between time greeting and idle thoughts
             if random.random() < 0.5:
-                text = random.choice(QUOTES[key])
+                # key is already set
+                pass
             else:
-                text = random.choice(QUOTES["idle"])
+                key = "idle"
                 
+        text = self._t(QUOTES[key])
         self.window.show_bubble(text)
 
     def handle_response(self, key):
@@ -656,17 +698,85 @@ class PetEngine(QObject):
             self.window.show_emote("angry")
             self.window.create_floating_text("-10 ❤️", "#555555")
             self.sound.play("sad")
+            
+        elif key.startswith("guess_"):
+            # Handle Guessing Game
+            # Format: "guess_{number}_{correct_number}" to be stateless? 
+            # Or stateful: self.guessing_target
+            
+            # Using stateful approach as it's cleaner for now
+            picked = key.split("_")[1]
+            try:
+                picked_val = int(picked)
+                target = getattr(self, "guessing_target", -1)
+                
+                if picked_val == target:
+                    # EARNED
+                    self.stats.add_xp(30)
+                    self.stats.data["happiness"] = min(100.0, self.stats.data["happiness"] + 10)
+                    self.window.create_floating_text("+30 XP", "#00FF00")
+                    self.window.show_emote("happy")
+                    self.sound.play("happy")
+                    self.window.show_bubble(self._t("games.guess_win"))
+                else:
+                    # LOST
+                    self.stats.data["happiness"] = max(0, self.stats.data["happiness"] - 15)
+                    self.window.create_floating_text("-15 ❤️", "#FF4444")
+                    self.trigger_emotion("sad", 3000) # Added animation trigger
+                    self.window.show_emote("sad")
+                    self.sound.play("sad")
+                    self.window.show_bubble(self._t("games.guess_lose", number=target))
+            except ValueError:
+                pass
+
+    def start_guessing_game(self):
+        target = random.randint(1, 25)
+        self.guessing_target = target
+        
+        # Generate 2 wrong answers
+        options_set = {target}
+        while len(options_set) < 3:
+            options_set.add(random.randint(1, 25))
+            
+        # Create buttons
+        options_list = list(options_set)
+        random.shuffle(options_list)
+        
+        # Prepare options for bubble: [(Label, Key)]
+        ui_options = [(str(num), f"guess_{num}") for num in options_list]
+        
+        self.window.show_bubble(self._t("games.guess_number"), options=ui_options)
 
     def check_active_window(self):
-        # Ignore if pet is busy (sleeping/working)
-        if self.current_state in ["sleep", "working"]: return
+        # Allow Work Check
+        if self.current_state == "sleep": return
+
+        # Global reaction cooldown (60s) for NORMAL interactions, separate for work
+        
+        title = window_reader.get_active_window_title().lower()
+        if not title: return
+
+        # --- POMODORO DISTRACTION CHECK ---
+        if self.work_timer.isActive() or self.current_state == "working":
+            # List of distracting keywords
+            distractions = ["youtube", "twitch", "game", "steam", "dota", "strike", "minecraft", "instagram", "tiktok", "netflix"]
+            
+            if any(d in title for d in distractions):
+                 # Scold user (cooldown 15s)
+                 if time.time() - self.last_window_reaction_time > 15:
+                     self.trigger_emotion("angry", 3000) 
+                     self.window.show_emote("angry")
+                     self.sound.play("angry")
+                     self.window.show_bubble(self._t("dialogues.work_scold"))
+                     self.last_window_reaction_time = time.time()
+            return # Skip normal reactions while working
+
+        # Ignore if busy (but allow work check above)
+        if self.current_state in ["working"]: return 
         
         # Global reaction cooldown (60s)
         if time.time() - self.last_window_reaction_time < 60: return
 
-        title = window_reader.get_active_window_title().lower()
-        if not title: return
-        
         self.last_window_title = title
         
         # Match keywords
@@ -683,9 +793,8 @@ class PetEngine(QObject):
                 if random.random() < 0.3:
                     self.last_window_reaction_time = time.time()
                     
-                    # Resolve text: list or string
-                    texts = reaction["text"]
-                    phrase = random.choice(texts) if isinstance(texts, list) else texts
+                    # Resolve text using localization
+                    phrase = self._t(reaction["text"])
                     self.talk_text(phrase)
                     
                     if not self.is_emotion_locked:

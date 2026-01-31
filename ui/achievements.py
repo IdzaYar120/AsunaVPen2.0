@@ -23,7 +23,7 @@ class AchievementCard(QFrame):
         # Icon
         icon_lbl = QLabel()
         icon_lbl.setFixedSize(40, 40)
-        path = os.path.join(Settings.ICONS_DIR, data['icon'])
+        path = Settings.get_icon_path(data['icon'])
         
         if os.path.exists(path):
             pix = QPixmap(path).scaled(40, 40, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)

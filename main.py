@@ -17,6 +17,16 @@ def main():
             logging.StreamHandler(sys.stdout)
         ]
     )
+
+    # 🛡️ Global Exception Hook for Crash Logging
+    def exception_hook(exctype, value, tb):
+        if issubclass(exctype, KeyboardInterrupt):
+            sys.__excepthook__(exctype, value, tb)
+            return
+        logging.critical("‼️ CRITICAL UNHANDLED EXCEPTION ‼️", exc_info=(exctype, value, tb))
+        sys.__excepthook__(exctype, value, tb)
+    
+    sys.excepthook = exception_hook
     
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)

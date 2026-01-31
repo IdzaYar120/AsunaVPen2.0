@@ -20,6 +20,18 @@ class ResourceManager:
             logger.error(f"Animations directory missing: {Settings.ANIM_DIR}")
             return
 
+        # Load Manifest
+        manifest = {}
+        manifest_path = os.path.join(Settings.ANIM_DIR, "manifest.json")
+        if os.path.exists(manifest_path):
+            try:
+                import json
+                with open(manifest_path, 'r') as f:
+                    manifest = json.load(f)
+                logger.info("Animation manifest loaded.")
+            except Exception as e:
+                logger.error(f"Failed to load manifest: {e}")
+
         # Estimate Ref H (Generic fallback or based on first sheet)
         # We'll use default since sheets might vary in size
         self.ref_h = int(Settings.DEFAULT_SPRITE_HEIGHT * Settings.SCALE_FACTOR)
@@ -32,19 +44,10 @@ class ResourceManager:
                 
             try:
                 if os.path.exists(sheet_path):
-                    # Default: 2 rows, 5 cols
-                    rows, cols = 2, 5
-                    if folder in ["training", "sing"]: cols = 4 
-                    if folder in ["eat", "tired", "sad", "angry"]: rows, cols = 1, 5
-                    if folder in ["drag"]: rows, cols = 2, 3
-                    if folder in ["scared", "shy"]: rows, cols = 1, 6
-                    if folder in ["dance", "playing", "working"]: cols = 3 
-                    if folder == "excited": rows, cols = 2, 4
-                    if folder == "sleep": cols = 2
-                    
-                    # Specific Overrides
-                    if folder in ["idle", "walk_left", "walk_right", "drag", "cooking"]: rows, cols = 2, 3
-                    if folder == "training": rows, cols = 2, 5 
+                    # Get config from manifest or use defaults from manifest's _default
+                    cfg = manifest.get(folder, manifest.get("_default", {"rows": 2, "cols": 5}))
+                    rows = cfg.get("rows", 2)
+                    cols = cfg.get("cols", 5)
                     
                     if not self.load_from_sheet(folder, sheet_path, rows, cols):
                         logger.warning(f"Failed to load sprite sheet: {folder}")
@@ -55,7 +58,7 @@ class ResourceManager:
                         self.animations[folder] = frames
                         logger.info(f"Loaded sequence: {folder}")
                     else:
-                        logger.warning(f"No valid frames found for: {folder}")
+                        pass # Silently ignore non-animation folders or empty ones
             except Exception as e:
                 logger.error(f"Error loading animation '{folder}': {e}")
 

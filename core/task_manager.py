@@ -56,6 +56,10 @@ class TaskManager:
                     if value >= quest["target"]: match = True
                 elif event_type == "train":
                     match = True # Any training
+                elif event_type == "cook":
+                    # value is item_id (e.g. "burger")
+                    if quest["target"] == "any" and value != "burnt_food": match = True
+                    elif quest["target"] == value: match = True
                 elif str(quest["target"]) == str(value):
                     match = True
                     

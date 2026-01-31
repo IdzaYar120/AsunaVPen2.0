@@ -5,8 +5,9 @@ import os
 from config.settings import Settings
 
 class ShopItem(QWidget):
-    def __init__(self, item_id, price, level, money, on_buy_callback):
+    def __init__(self, item_id, price, level, money, on_buy_callback, engine):
         super().__init__()
+        self.engine = engine
         self.setFixedSize(90, 130) # Increased height for larger icons
         
         main_layout = QVBoxLayout(self)
@@ -39,7 +40,7 @@ class ShopItem(QWidget):
         can_afford = money >= price
         
         # Icon
-        path = os.path.join(Settings.ICONS_DIR, f"{item_id}.png")
+        path = Settings.get_icon_path(item_id)
         icon = QLabel()
         icon.setFixedSize(60, 60) # Larger icon area
         icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -53,13 +54,14 @@ class ShopItem(QWidget):
         layout.addWidget(icon, alignment=Qt.AlignmentFlag.AlignCenter)
         
         # Name & Price
-        name = item_id.replace('-', ' ').title()
-        if len(name) > 10: name = name[:8] + ".." 
+        # Name & Price
+        name = self.engine._t(f"items.{item_id}")
         
         info_text = f"{name}\n💰 {price}"
         if is_locked: info_text = f"Lvl {req_level}\n🔒"
         
         info = QLabel(info_text)
+        info.setWordWrap(True) # Allow multi-line text
         info.setAlignment(Qt.AlignmentFlag.AlignCenter)
         info.setStyleSheet(f"color: {'#888' if is_locked else 'white'}; font-size: 9px; font-weight: bold;")
         layout.addWidget(info)
@@ -153,8 +155,20 @@ class ShopWindow(QWidget):
         }
         
         # Categorize
+        unlocked_recipes = self.engine.stats.data.get("unlocked_recipes", [])
+        
         for item, price in Settings.SHOP_PRICES.items():
-            if item in Settings.INGREDIENTS: categories["🥩 Інгредієнти"].append((item, price))
+            # Skip if recipe already learned
+            # Skip if recipe already learned
+            if item.startswith("recipe_") and item in unlocked_recipes:
+                continue
+            
+            # Specific overrides for user request
+            if item == "rice": categories["🍔 Їжа"].append((item, price))
+            elif item == "tomato": categories["🍎 Здоров'я"].append((item, price))
+            
+            # General Categorization
+            elif item in Settings.INGREDIENTS: categories["🥩 Інгредієнти"].append((item, price))
             elif item.startswith("recipe_"): categories["📜 Рецепти"].append((item, price))
             elif item in Settings.FOOD_STATS: categories["🍔 Їжа"].append((item, price))
             elif item in Settings.SWEET_STATS: categories["🍭 Солодощі"].append((item, price))
@@ -174,7 +188,7 @@ class ShopWindow(QWidget):
             grid.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
             
             for i, (item_id, price) in enumerate(items):
-                item_widget = ShopItem(item_id, price, self.engine.stats.data['level'], self.engine.stats.data['money'], self.engine.buy_item)
+                item_widget = ShopItem(item_id, price, self.engine.stats.data['level'], self.engine.stats.data['money'], self.engine.buy_item, self.engine)
                 grid.addWidget(item_widget, i // 4, i % 4) # 4 columns
                 
             scroll.setWidget(page)

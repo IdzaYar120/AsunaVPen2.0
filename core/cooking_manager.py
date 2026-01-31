@@ -61,6 +61,14 @@ class CookingManager:
         # 4. Add result to inventory
         if result:
             self.stats.add_item(result)
+            
+            # Auto-unlock recipe if discovered
+            if result != "burnt_food":
+                recipe_id = f"recipe_{result}"
+                self.unlock_recipe(recipe_id)
+
+            # Track for achievements
+            self.stats.data["cooked_count"] = self.stats.data.get("cooked_count", 0) + 1
             self.stats.save_stats()
             
         return result

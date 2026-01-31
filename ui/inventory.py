@@ -5,15 +5,16 @@ import os
 from config.settings import Settings
 
 class InventoryItem(QLabel):
-    def __init__(self, item_id, count):
+    def __init__(self, item_id, count, engine):
         super().__init__()
         self.item_id = item_id
+        self.engine = engine
         # Фіксований розмір слота
         self.setFixedSize(65, 65) 
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
         # Завантаження іконки
-        path = os.path.join(Settings.ICONS_DIR, f"{item_id}.png")
+        path = Settings.get_icon_path(item_id)
         if os.path.exists(path):
             self.setPixmap(QPixmap(path).scaled(45, 45, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
         
@@ -50,7 +51,8 @@ class InventoryItem(QLabel):
         if item_id in Settings.GIFT_STATS: item_type = "Подарунок (+Щастя)"
         elif item_id in Settings.PLAY_ITEMS: item_type = "Іграшка (Гра)"
         
-        self.setToolTip(f"{item_id.replace('-', ' ').title()}\n{item_type}")
+        name = self.engine._t(f"items.{item_id}")
+        self.setToolTip(f"{name}\n{item_type}")
 
     def mouseMoveEvent(self, e):
         """Логіка Drag-and-Drop"""
@@ -63,8 +65,9 @@ class InventoryItem(QLabel):
             drag.exec(Qt.DropAction.MoveAction)
 
 class InventoryWindow(QWidget):
-    def __init__(self, stats):
+    def __init__(self, engine):
         super().__init__()
+        self.engine = engine
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         
@@ -102,20 +105,20 @@ class InventoryWindow(QWidget):
         self.grid.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         self.content_layout.addWidget(self.grid_widget)
 
-        self.refresh(stats)
+        self.refresh()
 
-    def refresh(self, stats):
+    def refresh(self):
         """Очищення та перемальовування сітки"""
         while self.grid.count():
             item = self.grid.takeAt(0)
             if item.widget(): item.widget().deleteLater()
             
-        items = stats.get("inventory", {})
+        items = self.engine.stats.data.get("inventory", {})
         active_items = [(k, v) for k, v in items.items() if v > 0]
         
         for index, (item_id, count) in enumerate(active_items):
             row, col = index // 4, index % 4
-            self.grid.addWidget(InventoryItem(item_id, count), row, col)
+            self.grid.addWidget(InventoryItem(item_id, count, self.engine), row, col)
         
         self.adjustSize()
 

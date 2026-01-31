@@ -6,9 +6,10 @@ from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QColor
 
 class TodoWindow(QWidget):
-    def __init__(self, task_manager):
+    def __init__(self, task_manager, engine):
         super().__init__()
         self.task_manager = task_manager
+        self.engine = engine
         self.setWindowTitle("Quests")
         self.setWindowFlags(Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool | Qt.WindowType.FramelessWindowHint)
         self.resize(320, 450)
@@ -98,7 +99,7 @@ class TodoWindow(QWidget):
             
             # Верхній рядок: Текст + Кнопка видалення
             top_layout = QHBoxLayout()
-            label = QLabel(f"{q['text']}")
+            label = QLabel(self.engine._t(q['text']))
             label.setWordWrap(True)
             
             del_btn = QPushButton("×")

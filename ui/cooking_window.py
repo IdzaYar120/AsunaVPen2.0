@@ -124,6 +124,43 @@ class RecipeCard(QFrame):
             self.arrow.setText("▲" if self.expanded else "▼")
             self.update_style()
 
+class CookingPot(QFrame):
+    item_dropped = pyqtSignal(str)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedSize(240, 240)
+        self.setAcceptDrops(True)
+        self.default_style = """
+            QFrame {
+                background: rgba(255, 255, 255, 10);
+                border: 2px dashed rgba(255, 215, 0, 80);
+                border-radius: 120px;
+            }
+        """
+        self.filled_style = """
+            QFrame {
+                background: qradialgradient(cx:0.5, cy:0.5, radius: 0.5, fx:0.5, fy:0.5, stop:0 rgba(255, 223, 186, 200), stop:1 rgba(255, 215, 0, 150));
+                border: 2px solid rgba(255, 215, 0, 200);
+                border-radius: 120px;
+            }
+        """
+        self.setStyleSheet(self.default_style)
+
+    def set_filled(self, filled):
+        self.setStyleSheet(self.filled_style if filled else self.default_style)
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasText() and event.mimeData().text() in Settings.INGREDIENTS:
+            event.accept()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event):
+        item_id = event.mimeData().text()
+        self.item_dropped.emit(item_id)
+        event.accept()
+
 class CookingWindow(QWidget):
     def __init__(self, engine):
         super().__init__()
@@ -131,7 +168,7 @@ class CookingWindow(QWidget):
         self.engine = engine
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.setFixedSize(700, 450)
+        self.setFixedSize(700, 500)
         
         self.ingredients_in_pot = []
         self.setup_ui()
@@ -201,6 +238,7 @@ class CookingWindow(QWidget):
         self.recipe_vbox = QVBoxLayout(self.recipe_container)
         self.recipe_vbox.setContentsMargins(0, 5, 5, 5)
         self.recipe_vbox.setSpacing(10)
+        self.recipe_vbox.setAlignment(Qt.AlignmentFlag.AlignTop) # Ensure top alignment
         
         self.refresh_recipes()
         
@@ -218,22 +256,17 @@ class CookingWindow(QWidget):
         pot_title.setStyleSheet("color: #FFD700; font-weight: bold; font-size: 14px;")
         center_panel.addWidget(pot_title)
         
-        self.pot_area = QFrame()
-        self.pot_area.setObjectName("pot")
-        self.pot_area.setFixedSize(240, 240)
-        self.pot_area.setAcceptDrops(True)
-        self.pot_area.setStyleSheet("""
-            QFrame#pot {
-                background: rgba(255, 255, 255, 10);
-                border: 2px dashed rgba(255, 215, 0, 80);
-                border-radius: 120px;
-            }
-        """)
-        
-        self.pot_layout = QGridLayout(self.pot_area)
-        self.pot_layout.setContentsMargins(30, 30, 30, 30)
-        self.pot_layout.setSpacing(8)
+        self.pot_area = CookingPot() # custom class
+        self.pot_area.item_dropped.connect(self.add_to_pot)
         center_panel.addWidget(self.pot_area)
+        
+        # Ingredient Status Text
+        self.pot_status_lbl = QLabel("Каструля пуста")
+        self.pot_status_lbl.setWordWrap(True)
+        self.pot_status_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.pot_status_lbl.setStyleSheet("color: #AAA; font-size: 12px; font-style: italic;")
+        self.pot_status_lbl.setFixedHeight(40)
+        center_panel.addWidget(self.pot_status_lbl)
         
         # Buttons
         btn_row = QHBoxLayout()
@@ -290,18 +323,18 @@ class CookingWindow(QWidget):
         
         self.main_layout.addWidget(container)
         self.refresh_inventory()
-        self.refresh_inventory()
 
     def refresh_recipes(self):
-        # Clear current recipes
-        for i in reversed(range(self.recipe_vbox.count())): 
-            item = self.recipe_vbox.itemAt(i)
-            if item.widget(): item.widget().setParent(None)
+        # Clear current recipes (Correctly removing spacers too)
+        while self.recipe_vbox.count():
+            item = self.recipe_vbox.takeAt(0)
+            if item.widget(): 
+                item.widget().deleteLater()
             
         unlocked = self.engine.stats.data.get("unlocked_recipes", [])
         
-        # Recipes to show
-        recipe_results = ["burger", "sushi_set", "cake", "salad"]
+        # Use dynamic list from Settings, excluding burnt_food
+        recipe_results = [f for f in Settings.PREPARED_FOODS if f != "burnt_food"]
         
         for result_id in recipe_results:
             recipe_id = f"recipe_{result_id}"
@@ -338,6 +371,7 @@ class CookingWindow(QWidget):
 
         if missing:
             missing_names = [ing.replace("_", " ").title() for ing in missing]
+            if len(missing_names) > 3: missing_names = missing_names[:3] + ["..."]
             self.engine.window.create_floating_text(f"Бракує: {', '.join(missing_names)}", "#FF4444")
         
         self.clear_pot()
@@ -349,65 +383,73 @@ class CookingWindow(QWidget):
 
     def refresh_inventory(self):
         # Clear current grid
-        for i in reversed(range(self.ing_grid.count())): 
-            self.ing_grid.itemAt(i).widget().setParent(None)
+        while self.ing_grid.count():
+            item = self.ing_grid.takeAt(0)
+            if item.widget(): item.widget().deleteLater()
             
         inventory = self.engine.stats.data.get("inventory", {})
         row, col = 0, 0
-        for item_id in Settings.INGREDIENTS:
-            count = inventory.get(item_id, 0)
-            if count > 0:
-                icon = IngredientIcon(item_id)
-                count_lbl = QLabel(f"x{count}")
-                count_lbl.setStyleSheet("color: rgba(255,255,255,150); font-size: 10px;")
-                count_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                
-                widget = QWidget()
-                w_layout = QVBoxLayout(widget)
-                w_layout.setContentsMargins(2,2,2,2)
-                w_layout.setSpacing(2)
-                w_layout.addWidget(icon)
-                w_layout.addWidget(count_lbl)
-                
-                self.ing_grid.addWidget(widget, row, col)
-                col += 1
-                if col > 2: col = 0; row += 1
-
-    def dragEnterEvent(self, event):
-        if event.mimeData().hasText() and event.mimeData().text() in Settings.INGREDIENTS:
-            event.accept()
-        else:
-            event.ignore()
+        
+        # Filter ingredients only (showing all, or just owned?)
+        # Only showing owned is better to avoid clutter
+        items_to_show = [i for i in Settings.INGREDIENTS if inventory.get(i, 0) > 0]
+        
+        for item_id in items_to_show:
+            count = inventory.get(item_id)
+            
+            icon = IngredientIcon(item_id)
+            count_lbl = QLabel(f"x{count}")
+            count_lbl.setStyleSheet("color: rgba(255,255,255,150); font-size: 10px;")
+            count_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            
+            widget = QWidget()
+            w_layout = QVBoxLayout(widget)
+            w_layout.setContentsMargins(2,2,2,2)
+            w_layout.setSpacing(2)
+            w_layout.addWidget(icon)
+            w_layout.addWidget(count_lbl)
+            
+            self.ing_grid.addWidget(widget, row, col)
+            col += 1
+            if col > 2: col = 0; row += 1
 
     def dropEvent(self, event):
-        pos = self.pot_area.mapFromGlobal(event.globalPosition().toPoint())
-        if self.pot_area.rect().contains(pos):
-            item_id = event.mimeData().text()
-            self.add_to_pot(item_id)
-            event.accept()
+        # Handled by CookingPot now
+        pass
 
     def add_to_pot(self, item_id):
         if len(self.ingredients_in_pot) >= 9: return
         self.ingredients_in_pot.append(item_id)
         
-        lbl = QLabel()
-        path = os.path.join(Settings.ICONS_DIR, f"{item_id}.png")
-        if os.path.exists(path):
-            lbl.setPixmap(QPixmap(path).scaled(50, 50, Qt.AspectRatioMode.KeepAspectRatio))
+        # Update Visuals
+        self.pot_area.set_filled(True)
         
-        idx = len(self.ingredients_in_pot) - 1
-        self.pot_layout.addWidget(lbl, idx // 3, idx % 3)
-        self.refresh_inventory()
+        current_names = [i.replace("_", " ").title() for i in self.ingredients_in_pot]
+        if len(current_names) > 4: 
+             display_text = ", ".join(current_names[:4]) + f" (+{len(current_names)-4})"
+        else:
+             display_text = ", ".join(current_names)
+             
+        self.pot_status_lbl.setText(f"У каструлі: {display_text}")
+        self.pot_status_lbl.setStyleSheet("color: #FFD700; font-size: 12px; font-weight: bold;")
+        
+        self.refresh_inventory() # Update counts
 
     def clear_pot(self):
         self.ingredients_in_pot = []
-        for i in reversed(range(self.pot_layout.count())):
-            self.pot_layout.itemAt(i).widget().setParent(None)
-        self.refresh_inventory()
+        self.pot_area.set_filled(False)
+        self.pot_status_lbl.setText("Каструля пуста")
+        self.pot_status_lbl.setStyleSheet("color: #AAA; font-size: 12px; font-style: italic;")
 
     def start_cooking(self):
         if not self.ingredients_in_pot: return
+        
+        # Perform logic
         result = self.engine.cooking_manager.perform_cooking(self.ingredients_in_pot)
+        
+        # Remove ingredients from inventory logic implicitly handled by manager?
+        # CookingManager.perform_cooking REMOVES items from stats. So inventory drops.
+        
         if result:
             self.engine.window.create_floating_text(f"🍳 +{result}!", "#FFD700")
             if result == "burnt_food":
@@ -415,12 +457,12 @@ class CookingWindow(QWidget):
             else:
                 self.engine.set_state("cooking")
                 self.engine.check_quests("cook", result) # Trigger quest check
+        
         self.clear_pot()
         self.refresh_inventory()
         self.refresh_recipes()
 
     def on_recipe_click(self, recipe_id):
-        # Expansion handled by RecipeCard
         pass
 
     def closeEvent(self, event):

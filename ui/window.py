@@ -454,17 +454,7 @@ class PetWindow(QWidget):
             games_menu.addAction("💰  Полювання за монетами").triggered.connect(self.engine.open_minigame)
             games_menu.addAction("🎰  Ігрові автомати").triggered.connect(self.engine.open_slots)
 
-            # Music Submenu
-            music_menu = menu.addMenu("🎵  Музика")
-            music_menu.setStyleSheet(menu.styleSheet())
-            music_menu.addAction("📂  Вибрати папку").triggered.connect(self.engine.select_music_folder)
-            
-            vol_menu = music_menu.addMenu("🔈  Гучність")
-            vol_menu.setStyleSheet(menu.styleSheet())
-            vol_menu.addAction("25%").triggered.connect(lambda: self.engine.music_volume(25))
-            vol_menu.addAction("50%").triggered.connect(lambda: self.engine.music_volume(50))
-            vol_menu.addAction("75%").triggered.connect(lambda: self.engine.music_volume(75))
-            vol_menu.addAction("100%").triggered.connect(lambda: self.engine.music_volume(100))
+            menu.addAction("🎵  Плеєр").triggered.connect(self.engine.open_music_player)
             
             menu.addSeparator()
             menu.addAction("📝  Список справ").triggered.connect(self.engine.open_todo_list)

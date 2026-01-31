@@ -120,6 +120,10 @@ class StatsManager:
             self.data["inventory"][i_id] -= 1; return True
         return False
 
+    def add_item(self, i_id, count=1):
+        """Safely add item to inventory."""
+        self.data["inventory"][i_id] = self.data["inventory"].get(i_id, 0) + count
+
     def unlock_achievement(self, a_id):
         if a_id in Settings.ACHIEVEMENTS and a_id not in self.data["achievements"]:
             self.data["achievements"].append(a_id)

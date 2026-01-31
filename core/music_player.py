@@ -1,82 +1,80 @@
-from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
-from PyQt6.QtCore import QUrl, QDir
+from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput, QAudioDevice
+from PyQt6.QtCore import QUrl, QObject, pyqtSignal, QTimer
 import os, random
 
-class MusicPlayer:
+class MusicPlayer(QObject):
+    track_changed = pyqtSignal(str) # Emits track name
+    status_changed = pyqtSignal(bool) # True = playing, False = paused
+    
     def __init__(self):
+        super().__init__()
         self.player = QMediaPlayer()
         self.audio_output = QAudioOutput()
         self.player.setAudioOutput(self.audio_output)
-        self.audio_output.setVolume(0.7) # 70% volume default
         
         self.playlist = []
-        self.current_index = -1
-        self.current_folder = ""
+        self.current_index = 0
+        self.music_dir = ""
         
-        self.player.mediaStatusChanged.connect(self.handle_media_status)
-        self.player.errorOccurred.connect(self.handle_error)
-        self.player.playbackStateChanged.connect(self.handle_state_change)
+        # Connect signals
+        self.player.mediaStatusChanged.connect(self._on_media_status_changed)
         
-    def handle_error(self):
-        print(f"Music Error: {self.player.errorString()}")
+        # Default volume
+        self.audio_output.setVolume(0.5)
+
+    def load_music_folder(self, folder_path):
+        if not folder_path or not os.path.exists(folder_path): return False
         
-    def handle_state_change(self, state):
-        print(f"Music State: {state}")
-        
-    def set_folder(self, folder_path):
-        self.current_folder = folder_path
+        self.music_dir = folder_path
         self.playlist = []
         
-        # Scan for audio files
-        valid_exts = ['.mp3', '.wav', '.ogg', '.m4a']
-        try:
-            for f in os.listdir(folder_path):
-                if any(f.lower().endswith(ext) for ext in valid_exts):
-                    self.playlist.append(os.path.join(folder_path, f))
-        except Exception as e:
-            print(f"Error scanning folder: {e}")
-            return 0
+        extensions = (".mp3", ".wav", ".ogg", ".m4a")
+        for root, _, files in os.walk(folder_path):
+            for file in files:
+                if file.lower().endswith(extensions):
+                    self.playlist.append(os.path.join(root, file))
+                    
+        random.shuffle(self.playlist)
+        return len(self.playlist) > 0
+
+    def play_track(self, index):
+        if 0 <= index < len(self.playlist):
+            self.current_index = index
+            url = QUrl.fromLocalFile(self.playlist[self.current_index])
+            self.player.setSource(url)
+            self.player.play()
             
-        if self.playlist:
-            # Shuffle initially
-            random.shuffle(self.playlist)
-            self.current_index = 0
-            self.play_current()
-            return len(self.playlist)
-        return 0
-        
-    def play_current(self):
-        if not self.playlist: return
-        
-        path = self.playlist[self.current_index]
-        self.player.setSource(QUrl.fromLocalFile(path))
-        self.player.play()
-        print(f"Playing: {os.path.basename(path)}")
-        
+            track_name = os.path.basename(self.playlist[self.current_index])
+            self.track_changed.emit(track_name)
+            self.status_changed.emit(True)
+
+    def toggle_playback(self):
+        if self.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
+            self.player.pause()
+            self.status_changed.emit(False)
+        else:
+            if not self.playlist:
+                return # Do nothing if no music loaded
+                
+            if not self.player.source().isValid() and self.playlist:
+                self.play_track(self.current_index)
+            else:
+                self.player.play()
+                self.status_changed.emit(True)
+
     def next_track(self):
         if not self.playlist: return
         self.current_index = (self.current_index + 1) % len(self.playlist)
-        self.play_current()
-        
+        self.play_track(self.current_index)
+
     def prev_track(self):
         if not self.playlist: return
         self.current_index = (self.current_index - 1) % len(self.playlist)
-        self.play_current()
-        
-    def stop(self):
-        self.player.stop()
-        
-    def toggle_pause(self):
-        if self.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
-            self.player.pause()
-        else:
-            self.player.play()
-            
-    def handle_media_status(self, status):
-        # Auto-play next track when finished
+        self.play_track(self.current_index)
+
+    def set_volume(self, volume_0_to_1):
+        self.audio_output.setVolume(volume_0_to_1)
+
+    def _on_media_status_changed(self, status):
         if status == QMediaPlayer.MediaStatus.EndOfMedia:
             self.next_track()
-            
-    def set_volume(self, vol_percent):
-        # vol_percent 0-100
-        self.audio_output.setVolume(vol_percent / 100.0)

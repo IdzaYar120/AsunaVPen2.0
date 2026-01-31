@@ -186,3 +186,13 @@ class SlotsWindow(QWidget):
     def closeEvent(self, event):
         self.engine.sound.stop("slots")
         event.accept()
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+            event.accept()
+
+    def mouseMoveEvent(self, event):
+        if event.buttons() == Qt.MouseButton.LeftButton and self.drag_pos:
+            self.move(event.globalPosition().toPoint() - self.drag_pos)
+            event.accept()

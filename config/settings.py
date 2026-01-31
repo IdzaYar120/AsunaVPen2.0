@@ -85,7 +85,7 @@ class Settings:
         "sushi": 35.0, "pasta": 40.0, "pizza": 45.0, "ramen": 55.0,
         "chocolate": 10.0, "energy_drink": 5.0,
         "burger": 60.0, "sushi_set": 50.0, "cake": 40.0, "salad": 30.0,
-        "panna-cotta": 20.0, 
+        "panna_cotta": 20.0, 
         "burnt_food": 5.0,
         # Ingredients (can be eaten raw but low value)
         "meat": 5, "fish": 5, "shrimp": 5, "egg": 2, "cheese": 5, "flour": 1, "milk": 5, "lettuce": 5, "tomato": 5, "rice": 2
@@ -205,7 +205,7 @@ class Settings:
 
     # Descriptions and Effects
     ITEM_DESC = {
-        "panna-cotta": "items.panna-cotta",
+        "panna_cotta": "items.panna_cotta",
         "sandwich": "items.sandwich",
         "ball": "items.ball",
         "medicine": "items.medicine",
@@ -275,11 +275,11 @@ class Settings:
         frozenset(["fish", "rice", "shrimp"]): "sushi_set",
         frozenset(["flour", "milk", "egg", "chocolate"]): "cake",
         frozenset(["lettuce", "tomato"]): "salad",
-        frozenset(["milk", "gummy-bear"]): "panna-cotta",
+        frozenset(["milk", "gummy-bear"]): "panna_cotta",
     }
     
     INGREDIENTS = ["meat", "fish", "shrimp", "egg", "cheese", "flour", "milk", "lettuce", "tomato", "rice"]
-    PREPARED_FOODS = ["burger", "sushi_set", "cake", "salad", "panna-cotta", "burnt_food"]
+    PREPARED_FOODS = ["burger", "sushi_set", "cake", "salad", "panna_cotta", "burnt_food"]
     
     SOUNDS = {
         "click": "click.wav",

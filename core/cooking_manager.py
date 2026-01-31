@@ -50,10 +50,10 @@ class CookingManager:
                 return None
 
         # 2. Consume ingredients
+        # 2. Consume ingredients
         for ing in ingredients_list:
-            self.stats.data["inventory"][ing] -= 1
-            if self.stats.data["inventory"][ing] <= 0:
-                del self.stats.data["inventory"][ing]
+            if not self.stats.use_item(ing):
+                 self.logger.error(f"Failed to consume {ing} during cooking - ignoring.")
 
         # 3. Determine result
         result = self.get_result(ingredients_list)

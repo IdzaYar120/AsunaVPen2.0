@@ -52,6 +52,7 @@ class PetEngine(QObject):
         self.last_anim_time = time.time() * 1000
         self.is_emotion_locked = False
         self.inventory_window, self.shop_win, self.todo_win, self.minigame_win, self.slots_win, self.chat_win = None, None, None, None, None, None
+        self.music_window = None
         self.ach_win = None # Initialize AchievementWindow
         self.music_widget = None
         self.last_window_title = ""
@@ -298,7 +299,7 @@ class PetEngine(QObject):
             if self.stats.use_item(i_id):
                 self.stats.heal(Settings.MEDICINE_HEAL_AMOUNT)
                 self.trigger_emotion("eat", 2000) 
-                self.talk_text(self._t("emote_thanks"))
+                self.talk_text(self._t("system.emote_thanks"))
                 self.window.create_floating_text(f"+{Settings.MEDICINE_HEAL_AMOUNT} Health ❤️", "#FF4444")
         elif i_id in Settings.PLAY_ITEMS:
             if self.current_state == "sleep": return
@@ -347,7 +348,7 @@ class PetEngine(QObject):
                 self.sound.play_looped("eat", 3000)
                 self.check_quests("eat", i_id, delay_victory=3000)
         
-        if self.inv_win: self.inv_win.refresh(self.stats.data)
+        if self.inventory_window: self.inventory_window.refresh()
 
     def handle_energy_logic(self):
         e = self.stats.data["energy"]
@@ -369,6 +370,13 @@ class PetEngine(QObject):
             self.is_emotion_locked = False; self.set_state("idle")
 
     def think(self):
+        # 1. Priority: Cooking Mode (Persistent)
+        if hasattr(self, "cooking_window") and self.cooking_window and self.cooking_window.isVisible():
+            if not self.is_emotion_locked and self.current_state != "cooking":
+                self.set_state("cooking")
+                self.window.show_emote("cooking")
+            if not self.is_emotion_locked: return # Prevent other idle behaviors if we are cooking
+
         if self.window.is_dragging or self.is_emotion_locked or self.current_state in ["sleep", "tired", "working", "sad"]: return
         
         # Chance to Dance if Music is Playing
@@ -392,7 +400,7 @@ class PetEngine(QObject):
         if self.stats.data["health"] < 30:
              if random.random() < 0.1: # 10% chance
                  self.trigger_emotion("tired", 3000)
-                 self.talk_text(random.choice([self._t("ill_nausea"), self._t("ill_pills")]))
+                 self.talk_text(random.choice([self._t("system.ill_nausea"), self._t("system.ill_pills")]))
 
     def check_system_reactions(self):
         if not hasattr(self, 'sys_monitor'): return
@@ -402,19 +410,19 @@ class PetEngine(QObject):
         # High CPU Reaction
         if stats["cpu"] > 80:
             self.trigger_emotion("tired", 4000)
-            self.talk_text(self._t("sys_cpu"))
+            self.talk_text(self._t("system.sys_cpu"))
             return
 
         # Low Battery Reaction
         if stats["battery"] is not None and stats["battery"] < 20 and not stats["plugged"]:
             self.trigger_emotion("scared", 4000)
-            self.talk_text(self._t("sys_battery"))
+            self.talk_text(self._t("system.sys_battery"))
             return
             
         # High RAM Reaction
         if stats["ram_percent"] > 90:
              self.trigger_emotion("confused", 4000)
-             self.talk_text(self._t("sys_ram"))
+             self.talk_text(self._t("system.sys_ram"))
         
         # Chance for new quest (5% every 5s approx)
         if random.random() < 0.05:
@@ -544,7 +552,7 @@ class PetEngine(QObject):
             return True
         else:
             self.window.show_emote("angry")
-            self.window.create_floating_text(self._t("shop_no_money"), "#FF0000")
+            self.window.create_floating_text(self._t("system.shop_no_money"), "#FF0000")
             self.sound.play("angry")
             return False
     def open_inventory(self):
@@ -576,8 +584,9 @@ class PetEngine(QObject):
         self.cooking_window.refresh_inventory()
         self.cooking_window.show()
         self.cooking_window.raise_()
+        
         self.set_state("cooking")
-        self.window.show_emote("happy") # Visual feedback
+        self.window.show_emote("cooking")
 
     def close_cooking(self):
         if self.cooking_window:
@@ -594,6 +603,48 @@ class PetEngine(QObject):
             self.todo_win.move(self.window.x() + self.window.width() + 20, self.window.y())
             self.todo_win.show()
         else: self.todo_win.hide()
+
+    # --- MUSIC ---
+    def open_music_player(self):
+        if not self.music_window:
+            from ui.music_window import MusicWindow
+            self.music_window = MusicWindow(self)
+        
+        self.window.position_window(self.music_window)
+        self.music_window.show()
+        self.music_window.raise_()
+
+    def start_dancing(self):
+        if self.current_state in ["sleep", "tired", "working"]: return
+        if not self.is_emotion_locked:
+            # Randomly pick dance or sing if available
+            options = ["dance"]
+            if self.res.get_frames("sing"): options.append("sing")
+            
+            chosen = random.choice(options)
+            self.set_state(chosen)
+            
+            # Spawn particles based on type
+            if chosen == "sing":
+                self.window.spawn_particles("🎵", 8, "#00BFFF")
+            else:
+                self.window.spawn_particles("✨", 8, "#FFD700")
+
+            # Force loop by relying on state, no need to stop timer since set_state handles it unless locked
+            # But we are not locking emotion here to allow toggle, we just set state.
+            
+    def stop_dancing(self):
+        if self.current_state in ["dance", "sing"]:
+            self.set_state("idle")
+
+    def close_all_windows(self):
+        if self.shop_win: self.shop_win.close()
+        if self.inventory_window: self.inventory_window.close()
+        if self.cooking_window: self.cooking_window.close()
+        if self.ach_win: self.ach_win.close()
+        if self.todo_win: self.todo_win.close()
+        if self.slots_win: self.slots_win.close()
+        if self.music_window: self.music_window.close()
         
     def open_minigame(self):
         from ui.minigame import CoinGameWindow

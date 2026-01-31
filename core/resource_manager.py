@@ -38,11 +38,12 @@ class ResourceManager:
                     if folder in ["eat", "tired", "sad", "angry"]: rows, cols = 1, 5
                     if folder in ["drag"]: rows, cols = 2, 3
                     if folder in ["scared", "shy"]: rows, cols = 1, 6
-                    if folder in ["excited", "dance", "playing", "working"]: cols = 3 
+                    if folder in ["dance", "playing", "working"]: cols = 3 
+                    if folder == "excited": rows, cols = 2, 4
                     if folder == "sleep": cols = 2
                     
                     # Specific Overrides
-                    if folder in ["idle", "walk_left", "walk_right", "drag"]: rows, cols = 2, 3
+                    if folder in ["idle", "walk_left", "walk_right", "drag", "cooking"]: rows, cols = 2, 3
                     if folder == "training": rows, cols = 2, 5 
                     
                     if not self.load_from_sheet(folder, sheet_path, rows, cols):

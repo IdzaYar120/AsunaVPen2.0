@@ -5,6 +5,8 @@ from PyQt6.QtMultimedia import QMediaPlayer
 from core.resource_manager import ResourceManager
 from core.stats_manager import StatsManager
 from core.task_manager import TaskManager
+from core.cooking_manager import CookingManager
+from ui.cooking_window import CookingWindow
 from core.sound_manager import SoundManager
 from core.dialogues import QUOTES, WINDOW_KEYWORDS, WINDOW_REACTIONS
 from core import window_reader
@@ -29,6 +31,8 @@ class PetEngine(QObject):
         self.res = ResourceManager(); self.res.load_all()
         self.stats = StatsManager()
         self.task_manager = TaskManager(self.stats)
+        self.cooking_manager = CookingManager(self.stats)
+        self.cooking_window = None
         self.sound = SoundManager()
         
         self.load_language() # Load Strings
@@ -238,6 +242,13 @@ class PetEngine(QObject):
         
         self.window.show_emote("happy")
         self.sound.play("happy")
+
+        # Power up! Refill stats to new max
+        max_v = self.stats.get_max_stats()
+        self.stats.data["hunger"] = max_v
+        self.stats.data["energy"] = max_v
+        self.stats.data["health"] = max_v
+        self.update_loop() # Refresh UI immediately
 
     def start_work_session(self, mins):
         if self.current_state in ["sleep", "tired"] or self.is_emotion_locked: return
@@ -479,13 +490,31 @@ class PetEngine(QObject):
         self.is_emotion_locked = False; self.set_state("idle"); self.window.show_emote("angry"); self.sound.play("angry")
     def buy_item(self, i_id, price):
         if self.stats.data["money"] >= price:
-            self.stats.data["money"] -= price; inv = self.stats.data["inventory"]; inv[i_id] = inv.get(i_id, 0) + 1
-            self.window.create_floating_text(f"-{price} 💰", "#FF5555"); self.window.show_emote("happy")
+            self.stats.data["money"] -= price
+            
+            # Logic for recipes
+            if i_id.startswith("recipe_"):
+                self.cooking_manager.unlock_recipe(i_id)
+                if self.cooking_window:
+                    # Trigger refresh if window exists
+                    self.cooking_window.refresh_recipes()
+            else:
+                inv = self.stats.data["inventory"]
+                inv[i_id] = inv.get(i_id, 0) + 1
+            
+            self.window.create_floating_text(f"-{price} 💰", "#FF5555")
+            self.window.show_emote("happy")
             self.check_quests("buy", i_id)
+            self.stats.save_stats()
+            
             if self.shop_win: self.shop_win.refresh_shop()
             if self.inv_win: self.inv_win.refresh(self.stats.data)
             return True
-        else: self.window.show_emote("angry"); self.window.create_floating_text(self._t("shop_no_money"), "#FF0000"); self.sound.play("angry"); return False
+        else:
+            self.window.show_emote("angry")
+            self.window.create_floating_text(self._t("shop_no_money"), "#FF0000")
+            self.sound.play("angry")
+            return False
     def open_inventory(self):
         from ui.inventory import InventoryWindow
         if not self.inv_win: self.inv_win = InventoryWindow(self.stats.data)
@@ -500,6 +529,23 @@ class PetEngine(QObject):
             self.shop_win.move(int(nx), int(ny)); self.shop_win.show()
         else: self.shop_win.hide()
         
+    # --- COOKING ---
+    def open_cooking(self):
+        if not self.cooking_window:
+            self.cooking_window = CookingWindow(self)
+        
+        self.window.position_window(self.cooking_window)
+        self.cooking_window.refresh_inventory()
+        self.cooking_window.show()
+        self.cooking_window.raise_()
+        self.set_state("cooking")
+        self.window.show_emote("happy") # Visual feedback
+
+    def close_cooking(self):
+        if self.cooking_window:
+            self.cooking_window.hide()
+            self.set_state("idle")
+
     def open_todo_list(self):
         from ui.todo_list import TodoWindow
         if not self.todo_win:
@@ -585,30 +631,6 @@ class PetEngine(QObject):
                 text = random.choice(QUOTES["idle"])
                 
         self.window.show_bubble(text)
-
-    def use_item(self, item): # Assuming this is the function where the new code should go
-        if item in Settings.FOOD_STATS:
-            self.feed(Settings.FOOD_STATS[item])
-            self.trigger_emotion("eat", 2000)
-            self.sound.play("eat")
-            
-        elif item in Settings.SWEET_STATS:
-            # Sweets give happiness but less hunger fill
-            self.stats.data["happiness"] = min(100.0, self.stats.data["happiness"] + Settings.SWEET_STATS[item])
-            self.stats.data["hunger"] = min(self.stats.get_max_stats(), self.stats.data["hunger"] + 5)
-            self.trigger_emotion("eat", 2000)
-            self.sound.play("eat")
-            self.window.create_floating_text(self._t("food_delicious"), "#FF69B4")
-            
-        elif item in Settings.HEALTH_FOOD_STATS:
-            hunger_g, health_g = Settings.HEALTH_FOOD_STATS[item]
-            self.feed(hunger_g)
-            self.stats.heal(health_g)
-            self.trigger_emotion("eat", 2000)
-            self.sound.play("eat")
-            self.window.create_floating_text(f"+{health_g} ❤️", "#FF4444")
-
-        elif item == "medicine": self.sound.play("happy") # Corrected from original snippet
 
     def handle_response(self, key):
         """Handle bubble response selection."""

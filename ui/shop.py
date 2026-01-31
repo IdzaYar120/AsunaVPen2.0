@@ -146,16 +146,20 @@ class ShopWindow(QWidget):
         categories = {
             "🍔 Їжа": [],
             "🍭 Солодощі": [],
+            "🥩 Інгредієнти": [],
+            "📜 Рецепти": [],
             "🍎 Здоров'я": [],
             "🎁 Подарунки": []
         }
         
         # Categorize
         for item, price in Settings.SHOP_PRICES.items():
-            if item in Settings.FOOD_STATS: categories["🍔 Їжа"].append((item, price))
+            if item in Settings.INGREDIENTS: categories["🥩 Інгредієнти"].append((item, price))
+            elif item.startswith("recipe_"): categories["📜 Рецепти"].append((item, price))
+            elif item in Settings.FOOD_STATS: categories["🍔 Їжа"].append((item, price))
             elif item in Settings.SWEET_STATS: categories["🍭 Солодощі"].append((item, price))
             elif item in Settings.HEALTH_FOOD_STATS: categories["🍎 Здоров'я"].append((item, price))
-            else: categories["🎁 Подарунки"].append((item, price)) # Default to gifts
+            else: categories["🎁 Подарунки"].append((item, price))
             
         # Create Tabs
         for cat_name, items in categories.items():

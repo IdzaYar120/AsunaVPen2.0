@@ -255,7 +255,7 @@ class PetWindow(QWidget):
 
     def update_stats_ui(self, h, e, hl, hap, max_val=100.0):
         # Update progress ranges
-        for bar in [self.bar_hunger, self.bar_energy]:
+        for bar in [self.bar_hunger, self.bar_energy, self.bar_health]:
             if bar.maximum() != int(max_val): bar.setRange(0, int(max_val))
             
         self.bar_hunger.setValue(int(h)); self.bar_energy.setValue(int(e)); self.bar_health.setValue(int(hl))
@@ -391,6 +391,22 @@ class PetWindow(QWidget):
             
         self.bubble.move(int(x), int(y))
 
+    def wheelEvent(self, event):
+        # Resize Pet
+        delta = event.angleDelta().y()
+        step = 0.1
+        if delta > 0:
+            Settings.SCALE_FACTOR = min(3.0, Settings.SCALE_FACTOR + step)
+        else:
+            Settings.SCALE_FACTOR = max(0.5, Settings.SCALE_FACTOR - step)
+        
+        # Reload assets with new scale
+        from core.resource_manager import ResourceManager
+        ResourceManager().load_all()
+        self.update_animation()
+        self.setup_ui() # Refresh UI positions
+        self.engine.stats.save_stats() # Save scale if needed (optional)
+        
     def contextMenuEvent(self, event):
         if self.engine:
             menu = QMenu(self); menu.setStyleSheet("QMenu { background-color: #252525; color: white; border: 1px solid #444; border-radius: 10px; padding: 5px; } QMenu::item:selected { background-color: #3d3d3d; color: #FFD700; }")
@@ -405,6 +421,7 @@ class PetWindow(QWidget):
             actions_menu = menu.addMenu("⚡  Дії")
             actions_menu.setStyleSheet(menu.styleSheet())
             
+            actions_menu.addAction("🍳  Кулінарія").triggered.connect(self.engine.open_cooking)
             actions_menu.addAction("⚔️  Тренування").triggered.connect(self.engine.train)
             
             sleep_t = "☀️  Прокинутись" if self.engine.current_state == "sleep" else "🌙  Лягти спати"

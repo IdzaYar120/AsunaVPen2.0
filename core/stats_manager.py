@@ -91,10 +91,10 @@ class StatsManager:
         h_decay = 0.0
         # If starving or exhausted
         if self.data["hunger"] < 20 or self.data["energy"] < 10:
-             h_decay = 0.05
+             h_decay = 0.005
         
         if self.data["hunger"] <= 1:
-             h_decay = 0.2 # Starvation
+             h_decay = 0.02 # Starvation
 
         if h_decay > 0:
             self.data["health"] = max(0.0, min(max_val, self.data["health"] - h_decay))

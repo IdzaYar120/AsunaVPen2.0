@@ -124,6 +124,7 @@ class GardenPot(QWidget):
         else:
             self.plant_img.hide()
             self.withered_img.hide()
+            self.pot_img.show() # Restore pot visibility
             self.water_bar.setValue(0)
 
     def mousePressEvent(self, event):

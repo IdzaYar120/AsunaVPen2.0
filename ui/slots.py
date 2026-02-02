@@ -27,7 +27,7 @@ class SlotsWindow(QWidget):
         }
 
         self.init_ui()
-        self.update_balance()
+        self.engine.sound.start_loop("slots") # Background Casino Music
 
     def init_ui(self):
         # Основний стиль
@@ -133,7 +133,7 @@ class SlotsWindow(QWidget):
         self.anim_timer = QTimer(self)
         self.anim_timer.timeout.connect(self.anim_tick)
         self.anim_steps = 0
-        self.anim_timer.start(100)
+        self.anim_timer.start(50) # Faster tick for better effect
         
         self.current_bet = bet
 
@@ -144,7 +144,7 @@ class SlotsWindow(QWidget):
         for reel in self.reels:
             reel.setText(random.choice(self.SYMBOLS))
             
-        if self.anim_steps >= 20: # 2 секунди
+        if self.anim_steps >= 40: # 40 steps * 50ms = 2 seconds
             self.anim_timer.stop()
             self.finalize_spin()
 

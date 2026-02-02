@@ -1,0 +1,13 @@
+{
+    "hunger": 72.71500000002482,
+    "energy": 22.320499999992123,
+    "health": 100.0,
+    "xp": 0,
+    "level": 2,
+    "money": 80,
+    "inventory": {
+        "sandwich": 2,
+        "lollipop": 1,
+        "candy-apple": 0
+    }
+}

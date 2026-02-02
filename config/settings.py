@@ -1,0 +1,346 @@
+import os, logging
+
+class Settings:
+    PROJECT_NAME = "Asuna VPet Pro"
+    LOG_LEVEL = logging.INFO
+    TARGET_FPS = 60
+    ANIMATION_SPEED = 250
+    AI_THINK_INTERVAL = 5000       
+    TIRED_REMIND_INTERVAL = 10000  
+    WALK_SPEED = 1.3
+    
+    # SYSTEM SETTINGS
+    VOLUME_SFX = 50     # 0-100
+    VOLUME_MUSIC = 50   # 0-100
+    LANGUAGE = "uk"     # "uk", "en"
+    RUN_ON_STARTUP = False
+    
+    # UI COLORS & STYLES
+    COLORS = {
+        "particle_sing": "#00BFFF",    # Cyan
+        "particle_dance": "#FFD700",   # Gold
+        "particle_love": "#FF69B4",    # HotPink
+        "particle_xp": "#FFD700",      # Gold (Text)
+        "particle_money": "#FFCC00",   # Gold-v2
+        "particle_sad": "#4444FF",     # Blue-ish
+        "text_error": "#FF4444",       # Red
+    }
+    
+    # AI CONFIG
+    GEMINI_API_KEY = "" # User will paste key here or via UI
+    SCALE_FACTOR = 1.0
+    DEFAULT_SPRITE_HEIGHT = 200    
+    
+    # Per-animation scale adjustments (1.0 = default 200px)
+    # Tweak these numbers to make animations look uniform
+    ANIMATION_SCALES = {
+        "idle": 1.0, "walk_left": 1.0, "walk_right": 1.0,
+        "eat": 1.0, "sleep": 1.0,
+        "playing": 1.0, "working": 1.0, "scared": 1.0,
+        "shy": 1.0, "angry": 1.0, "tired": 1.0, "training": 2.0,
+        "drag": 1.0, "excited": 1.0, "dance": 1.0, "sing": 1.3, "sad": 1.0,
+        "cooking": 1.0
+    }
+    
+    # --- EXPENSES BALANCE ---
+    STATS_DECAY_BASE = 0.003
+    ENERGY_DECAY_IDLE, ENERGY_DECAY_WALK, ENERGY_DECAY_WORK = 0.05, 0.2, 0.5
+    
+    # --- HAPPINESS LOGIC ---
+    HAPPINESS_DECAY_IDLE = 0.002
+    HAPPINESS_DECAY_TRAIN = 0.015
+    HAPPINESS_DECAY_WORK = 0.008
+    HAPPINESS_DECAY_ANGRY = 0.02
+    HAPPINESS_DECAY_NEGLECT = 0.01
+    NEGLECT_THRESHOLD = 300 # 5 minutes
+    HAPPINESS_THRESHOLD_SAD = 25.0
+
+    ENERGY_THRESHOLD_TIRED, ENERGY_THRESHOLD_SLEEP = 15.0, 5.0
+    XP_PER_TRAINING, COINS_PER_TRAINING = 25, 15
+    PLAY_XP_REWARD = 10
+    DANCE_XP_REWARD = 5
+    
+    # --- PROGRESSION ---
+    BASE_XP_REQ = 100 # Base XP for lvl 2
+    LEVEL_UP_REWARD_COINS = 50
+    STAT_BOOST_PER_LEVEL = 20 # +20 to max stats per level
+
+    # --- GARDEN CONFIG ---
+    # Growth time in seconds per stage
+    GARDEN_GROWTH_TIME = 900 # 15 minutes per stage
+    GARDEN_WATER_DECAY = 0.05 # Very slow drying
+    
+    # Plant Definitions
+    GARDEN_PLANTS = {
+        "tomato": {"growth_mult": 1.0, "water_mult": 1.0, "reward": "tomato"},
+        "daisy": {"growth_mult": 0.8, "water_mult": 0.8, "reward": "daisy"},
+        "tulip": {"growth_mult": 1.2, "water_mult": 1.2, "reward": "tulip"},
+        "blue_lily": {"growth_mult": 1.5, "water_mult": 1.5, "reward": "blue_lily"},
+    }
+
+    # SHOP
+    MEDICINE_HEAL_AMOUNT = 50
+    
+    SHOP_PRICES = {
+        # Sweets
+        "lollipop": 5, "toffee": 8, "gummy-bear": 10, "donut": 10, 
+        "chocolate": 12, "candy-apple": 15, "croissant": 20,
+        
+        # Food & Ingredients
+        "sandwich": 15, "fried-potatoes": 12, "rice": 15, "hot-dog": 15, 
+        "sushi": 30, "pasta": 35, "pizza": 40, "ramen": 50,
+        "meat": 15, "fish": 15, "shrimp": 20, "egg": 5, "cheese": 10, 
+        "flour": 5, "milk": 8, "lettuce": 5, "tomato": 5,
+        
+        # Fruits & Veg (Health)
+        "blueberry": 1, "apple": 2, "tomato": 3, "banana": 3, "cucumber": 4, 
+        "nuts": 5, "pomegranate": 6, "dragon-fruit": 9, "pumpkin": 12,
+
+        # Toys & Gifts
+        "ball": 30, "medicine": 50, "joystick": 60, "book": 30,
+        "flowers": 25, "teddy-bear": 55, "sword-gift": 100, "crown": 250,
+        "headphones": 150, "gem": 200, "magic-wand": 300, 
+        "love-potion": 150, "smartphone": 500, "crystal-ball": 400,
+
+        # Recipes
+        "recipe_burger": 500, "recipe_sushi_set": 750, "recipe_cake": 1000,
+        "recipe_panna_cotta": 1000,
+        "energy_drink": 30,
+
+        # Garden
+        "watering_can": 150,
+        "seed_tomato": 10,
+        "seed_daisy": 15,
+        "seed_tulip": 20,
+        "seed_blue_lily": 30
+    }
+    
+    
+    # Basic food values
+    FOOD_STATS = {
+        "sandwich": 20.0, "fried-potatoes": 15.0, "rice": 10.0, "hot-dog": 25.0,
+        "sushi": 35.0, "pasta": 40.0, "pizza": 45.0, "ramen": 55.0,
+        "chocolate": 10.0, "energy_drink": 5.0,
+        "burger": 60.0, "sushi_set": 50.0, "cake": 40.0, "salad": 30.0,
+        "panna_cotta": 20.0, 
+        "burnt_food": 5.0,
+        # Ingredients (can be eaten raw but low value)
+        "meat": 5, "fish": 5, "shrimp": 5, "egg": 2, "cheese": 5, "flour": 1, "milk": 5, "lettuce": 5, "tomato": 5, "rice": 2
+    }
+    
+    SWEET_STATS = {
+        "lollipop": 10, "toffee": 15, "gummy-bear": 20, "chocolate": 25, 
+        "candy-apple": 30, "donut": 10, "croissant": 35
+    }
+    
+    # Healthy food that heals (+Hunger, +Health)
+    HEALTH_FOOD_STATS = {
+        "salad": (30, 5),
+        "burnt_food": (5, -5), # Actually unhealthy
+        "blueberry": (0, 1), "apple": (1, 1), "tomato": (2, 1), "banana": (4, 1),
+        "cucumber": (1, 1), "nuts": (6, 3), "pomegranate": (1, 4),
+        "dragon-fruit": (2, 3), "pumpkin": (3, 6), "medicine": (0, 50)
+    }
+    
+    GIFT_STATS = {
+        "flowers": 25, "teddy-bear": 50, "sword-gift": 80, "crown": 100,
+        "book": 20, "headphones": 40, "gem": 50, "magic-wand": 60,
+        "love-potion": 100, "smartphone": 75, "ball": 15, "joystick": 30,
+        "crystal-ball": 150,
+        # Garden Flowers
+        "daisy": 25, "tulip": 35, "blue_lily": 50
+    }
+    
+    SHOP_UNLOCKS = {
+        # Level 1
+        "blueberry": 1, "apple": 1, "tomato": 1, "banana": 1, "sandwich": 1, "ball": 1, "medicine": 1, "book": 1,
+        "meat": 1, "egg": 1, "flour": 1, "milk": 1, "lettuce": 1, "flowers": 1,
+        # Level 2
+        "cucumber": 2, "nuts": 2, "hot-dog": 2, "rice": 2, "salad": 2, "lollipop": 2, "donut": 2,
+        "cheese": 2, "fish": 2, "recipe_burger": 2,
+        # Level 3
+        "pomegranate": 3, "pumpkin": 3, "fried-potatoes": 3, "toffee": 3, "croissant": 3, "headphones": 3,
+        "shrimp": 3, "recipe_sushi_set": 3, "energy_drink": 3,
+        # Level 4
+        "dragon-fruit": 4, "sushi": 4, "pasta": 4, "gummy-bear": 4,
+        "recipe_cake": 4,
+        # Level 5
+        "pizza": 5, "ramen": 5, "chocolate": 5, "candy-apple": 5, "teddy-bear": 5, "gem": 5,
+        # High Level
+        "joystick": 7, "magic-wand": 7, "love-potion": 8, "sword-gift": 10, "smartphone": 10, "crown": 15,
+        "crystal-ball": 15
+    }
+    
+    ACHIEVEMENTS = {
+        "level_5": {"name": "П'ятірка!", "desc": "Досягти 5 рівня", "icon": "crown.png"},
+        "level_10": {"name": "Ветеран", "desc": "Досягти 10 рівня", "icon": "crown.png"},
+        "level_20": {"name": "Легенда", "desc": "Досягти 20 рівня", "icon": "crown.png"},
+        
+        "rich": {"name": "Мільйонер", "desc": "Накопичити 1000 монет", "icon": "crown.png"},
+        "tycoon": {"name": "Магнат", "desc": "Накопичити 5000 монет", "icon": "crown.png"},
+        
+        "best_friend": {"name": "Найкращі друзі", "desc": "100% щастя", "icon": "flowers.png"},
+        
+        "gamer": {"name": "Геймер", "desc": "Зіграти в ігри 10 разів", "icon": "joystick.png"},
+        "pro_gamer": {"name": "Кіберспортсмен", "desc": "Зіграти в ігри 50 разів", "icon": "joystick.png"},
+        
+        "worker": {"name": "Трудоголік", "desc": "Працювати 60 хв сумарно", "icon": "working.png"},
+        "manager": {"name": "Менеджер", "desc": "Працювати 5 годин сумарно", "icon": "working.png"},
+        
+        "hoarder": {"name": "Колекціонер", "desc": "Мати 20 предметів в інвентарі", "icon": "ball.png"},
+        
+        # Cooking Achievements
+        "chef": {"name": "Шеф-кухар", "desc": "Приготувати 5 страв", "icon": "recipe_burger.png"},
+        "gourmet": {"name": "Гурман", "desc": "З'їсти 10 приготованих страв", "icon": "cake.png"},
+        "master_chef": {"name": "Майстер Шеф", "desc": "Приготувати 20 страв", "icon": "crown.png"}
+    }
+    
+    PLAY_ITEMS = ["ball", "joystick"]
+
+    # MINI-GAMES
+    MINIGAME_DURATION = 15 # seconds
+    COIN_REWARD = 1
+
+    import sys
+    if getattr(sys, 'frozen', False):
+        # Running as executable
+        BASE_DIR = sys._MEIPASS # Assets embedded in temp folder
+        ROOT_DIR = os.path.dirname(sys.executable) # Executable location for saves
+    else:
+        # Running from source
+        BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        ROOT_DIR = BASE_DIR
+
+    ANIM_DIR = os.path.join(BASE_DIR, "assets", "animations")
+    
+    # Save data acts as persistent storage, so it goes to ROOT_DIR (next to exe)
+    DATA_DIR = os.path.join(ROOT_DIR, "data")
+    SAVE_PATH = os.path.join(DATA_DIR, "stats.json")
+    
+    UI_DIR = os.path.join(BASE_DIR, "assets", "ui", "emotes")
+    ICONS_DIR = os.path.join(BASE_DIR, "assets", "ui", "icons")
+    SOUNDS_DIR = os.path.join(BASE_DIR, "assets", "sounds")
+
+    @staticmethod
+    def get_icon_path(icon_name):
+        """Recursively searches for an icon in ICONS_DIR and its subfolders."""
+        if not icon_name.endswith(".png"): icon_name += ".png"
+        
+        # 1. Check root first
+        root_path = os.path.join(Settings.ICONS_DIR, icon_name)
+        if os.path.exists(root_path): return root_path
+        
+        # 2. Recursive search
+        for root, dirs, files in os.walk(Settings.ICONS_DIR):
+            if icon_name in files:
+                return os.path.join(root, icon_name)
+        
+        # 3. Fallback for Recipes (if specific icon missing, use generic scroll)
+        if icon_name.startswith("recipe_"):
+            scroll_path = Settings.get_icon_path("recipe_scroll.png")
+            if os.path.exists(scroll_path): return scroll_path
+                
+        return root_path
+
+    # Descriptions and Effects
+    ITEM_DESC = {
+        "panna_cotta": "items.panna_cotta",
+        "sandwich": "items.sandwich",
+        "ball": "items.ball",
+        "medicine": "items.medicine",
+        "chocolate": "items.chocolate",
+        "energy_drink": "items.energy_drink",
+        "lollipop": "items.lollipop",
+        "toffee": "items.toffee",
+        "gummy-bear": "items.gummy-bear",
+        "donut": "items.donut",
+        "candy-apple": "items.candy-apple",
+        "croissant": "items.croissant",
+        
+        "fried-potatoes": "items.fried-potatoes",
+        "rice": "items.rice",
+        "hot-dog": "items.hot-dog",
+        "sushi": "items.sushi",
+        "pasta": "items.pasta",
+        "pizza": "items.pizza",
+        "ramen": "items.ramen",
+
+        "blueberry": "items.blueberry",
+        "apple": "items.apple",
+        "tomato": "items.tomato",
+        "banana": "items.banana",
+        "cucumber": "items.cucumber",
+        "nuts": "items.nuts",
+        "pomegranate": "items.pomegranate",
+        "dragon-fruit": "items.dragon-fruit",
+        "pumpkin": "items.pumpkin",
+
+        "joystick": "items.joystick",
+        "book": "items.book",
+        "flowers": "items.flowers",
+        "teddy-bear": "items.teddy-bear",
+        "sword-gift": "items.sword-gift",
+        "crown": "items.crown",
+        "headphones": "items.headphones",
+        "gem": "items.gem",
+        "magic-wand": "items.magic-wand",
+        "love-potion": "items.love-potion",
+        "smartphone": "items.smartphone",
+        "crystal-ball": "items.crystal-ball",
+        "daisy": "items.daisy",
+        "tulip": "items.tulip",
+        "blue_lily": "items.blue_lily",
+
+        "meat": "items.meat",
+        "fish": "items.fish",
+        "shrimp": "items.shrimp",
+        "egg": "items.egg",
+        "cheese": "items.cheese",
+        "flour": "items.flour",
+        "milk": "items.milk",
+        "lettuce": "items.lettuce",
+        "recipe_burger": "items.recipe_burger",
+        "recipe_sushi_set": "items.recipe_sushi_set",
+        "recipe_cake": "items.recipe_cake",
+        "recipe_panna_cotta": "items.recipe_panna_cotta",
+        "burger": "items.burger",
+        "sushi_set": "items.sushi_set",
+        "cake": "items.cake",
+        "salad": "items.salad",
+        "burnt_food": "items.burnt_food",
+
+        # Garden Items
+        "watering_can": "items.watering_can",
+        "seed_tomato": "items.seed_tomato",
+        "seed_daisy": "items.seed_daisy",
+        "seed_tulip": "items.seed_tulip",
+        "seed_blue_lily": "items.seed_blue_lily"
+    }
+
+    # Cooking Logic
+    # Returns the result item based on a set of ingredient IDs
+    COOKING_RECIPES = {
+        frozenset(["meat", "flour", "cheese"]): "burger",
+        frozenset(["fish", "rice", "shrimp"]): "sushi_set",
+        frozenset(["flour", "milk", "egg", "chocolate"]): "cake",
+        frozenset(["lettuce", "tomato"]): "salad",
+        frozenset(["milk", "gummy-bear"]): "panna_cotta",
+    }
+    
+    INGREDIENTS = ["meat", "fish", "shrimp", "egg", "cheese", "flour", "milk", "lettuce", "tomato", "rice"]
+    PREPARED_FOODS = ["burger", "sushi_set", "cake", "salad", "panna_cotta", "burnt_food"]
+    
+    SOUNDS = {
+        "click": "click.wav",
+        "eat": "eat.wav",
+        "training": "training.wav",
+        "arigato": "arigato.wav",
+        "drag": "drag.wav",
+        "angry": "angry.wav",
+        "happy": "happy.wav",
+        "sleep": "sleep.wav",
+        "coin_game": "coin_game.wav",
+        "quest": "quest.wav",
+        "slots": "slots.wav",
+        "cook": "cook.wav"
+    }

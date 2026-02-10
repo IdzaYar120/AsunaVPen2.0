@@ -23,6 +23,8 @@ class WindowManager:
         self.slots_win = None
         self.minigame_win = None
         self.garden_win = None
+        self.journal_win = None
+        self.mail_win = None
         
     def close_all(self):
         """Closes all active windows."""
@@ -37,6 +39,8 @@ class WindowManager:
         if self.slots_win: self.slots_win.close()
         if self.minigame_win: self.minigame_win.close()
         if self.garden_win: self.garden_win.close()
+        if self.journal_win: self.journal_win.close()
+        if self.mail_win: self.mail_win.close()
 
     def _center_window(self, win, x_offset=0, y_offset=0):
         """Helper to position window relative to the pet."""
@@ -155,6 +159,24 @@ class WindowManager:
             self.garden_win.show()
         else:
             self.garden_win.hide()
+
+    def open_journal(self):
+        from ui.journal_window import JournalWindow
+        if not self.journal_win:
+            self.journal_win = JournalWindow(self.engine.journal)
+        
+        self.journal_win.refresh()
+        self.engine.window.position_window(self.journal_win)
+        self.journal_win.show()
+        self.journal_win.raise_()
+
+    def show_mail(self, mail_data):
+        from ui.mail_window import MailWindow
+        # Mail is usually a one-off popup
+        self.mail_win = MailWindow(self.engine, mail_data)
+        self.engine.window.position_window(self.mail_win)
+        self.mail_win.show()
+        self.mail_win.raise_()
 
     # --- Music ---
 

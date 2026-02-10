@@ -31,6 +31,7 @@ class TrayMenu(QSystemTrayIcon):
         menu.addAction("🎒 Інвентар").triggered.connect(self.engine.open_inventory)
         menu.addAction("🛒 Магазин").triggered.connect(self.engine.open_shop)
         menu.addAction("🌻 Сад").triggered.connect(self.engine.open_garden)
+        menu.addAction("📖 Щоденник").triggered.connect(self.engine.open_journal)
         
         # Actions Submenu
         actions_menu = menu.addMenu("⚡ Дії")

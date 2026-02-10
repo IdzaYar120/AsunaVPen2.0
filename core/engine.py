@@ -23,9 +23,12 @@ from core import window_reader
 from core.ai_client import AIClient
 from core.music_player import MusicPlayer
 from core.system_monitor import SystemMonitor
+from core.journal_manager import JournalManager
+from core.mail_manager import MailManager
 
 # UI
 from core.window_manager import WindowManager
+from core.interaction_handler import InteractionHandler
 
 # Config
 from config.settings import Settings
@@ -58,6 +61,10 @@ class PetEngine(QObject):
         
         # System Monitor (Background)
         self.sys_monitor = SystemMonitor()
+        
+        # Social Features
+        self.journal = JournalManager(self.stats.DATA_DIR)
+        self.mail_manager = MailManager(self.stats)
 
         # States and Animation
         self.current_state = "idle"
@@ -73,6 +80,9 @@ class PetEngine(QObject):
         self.last_window_check = 0
         self.last_window_reaction_time = 0
         self.last_game_time = 0
+        self.last_mail_check = time.time()
+        
+        self.interaction = InteractionHandler(self)
         
         # Interaction State
         self.click_count, self.last_click_time, self.drag_start_time = 0, 0, 0
@@ -139,9 +149,7 @@ class PetEngine(QObject):
         neglected = (time.time() - self.last_interaction_time) > Settings.NEGLECT_THRESHOLD
         self.stats.update(self.current_state, neglected)
         
-        # Achievement Check (every 3s for optimization)
-        if int(time.time()) % 3 == 0:
-            self.check_achievements()
+
             
         # Active Window Check (every 5s)
         if time.time() - self.last_window_check > 5:
@@ -154,6 +162,13 @@ class PetEngine(QObject):
                 if random.random() < 0.05: # 5% chance every 5s if cooldown passed
                     self.start_guessing_game()
                     self.last_game_time = time.time()
+            
+            # Check for Mail (every 10 minutes)
+            if time.time() - self.last_mail_check > 600:
+                self.last_mail_check = time.time()
+                mail = self.mail_manager.check_for_mail()
+                if mail:
+                    self.window_manager.show_mail(mail)
 
         # State Priorities
         if self.window.is_dragging:
@@ -253,6 +268,7 @@ class PetEngine(QObject):
             QTimer.singleShot(4100, self.trigger_levelup)
             
         self.check_quests("train", "any", delay_victory=4000)
+        self.journal.log_event("train")
 
     def check_quests(self, event_type, value, delay_victory=0):
         rewards = self.task_manager.check_event(event_type, value)
@@ -489,58 +505,18 @@ class PetEngine(QObject):
     def open_achievements(self):
         self.window_manager.open_achievements()
 
-    def check_achievements(self):
-        # 1. Level
-        if self.stats.data["level"] >= 5: self._try_unlock("level_5")
-        if self.stats.data["level"] >= 10: self._try_unlock("level_10")
-        if self.stats.data["level"] >= 20: self._try_unlock("level_20")
-            
-        # 2. Money
-        if self.stats.data["money"] >= 1000: self._try_unlock("rich")
-        if self.stats.data["money"] >= 5000: self._try_unlock("tycoon")
-            
-        # 3. Best Friend
-        if self.stats.data["happiness"] >= 99.9: self._try_unlock("best_friend")
-            
-        # 4. Games
-        games = self.stats.data.get("games_played", 0)
-        if games >= 10: self._try_unlock("gamer")
-        if games >= 50: self._try_unlock("pro_gamer")
-            
-        # 5. Work
-        worked = self.stats.data.get("minutes_worked", 0)
-        if worked >= 60: self._try_unlock("worker")
-        if worked >= 300: self._try_unlock("manager")
-        
-        # 6. Cooking & Eating
-        cooked = self.stats.data.get("cooked_count", 0)
-        if cooked >= 5: self._try_unlock("chef")
-        if cooked >= 20: self._try_unlock("master_chef")
-        
-        eaten = self.stats.data.get("eaten_cooked", 0)
-        if eaten >= 10: self._try_unlock("gourmet")
-        
-        # 7. Hoarder (Inventory Count)
-        total_items = sum(self.stats.data.get("inventory", {}).values())
-        if total_items >= 20: self._try_unlock("hoarder")
-
-    def _try_unlock(self, a_id):
-        if self.stats.unlock_achievement(a_id):
-            info = Settings.ACHIEVEMENTS[a_id]
-            self.window.show_achievement_popup(info["name"], info["icon"])
-            self.sound.play("happy") # Звук успіху
+    def on_achievement_unlocked(self, name, icon):
+        self.window.show_achievement_popup(name, icon)
+        self.sound.play("happy")
+        self.journal.log_event("achievement", details=name)
 
     def wake_up(self): 
         self.is_emotion_locked = False; self.set_state("idle")
         self.sound.stop("sleep")
     def handle_drag_start(self): 
-        if self.work_timer.isActive(): self.stop_work_session()
-        self.drag_start_time = time.time(); self.is_emotion_locked = False; self.set_state("drag")
-        self.sound.start_loop("drag")
+        self.interaction.handle_drag_start()
     def handle_dragging(self):
-        if time.time() - self.drag_start_time > 5.0:
-            if self.current_state != "angry": self.set_state("angry"); self.window.show_emote("angry"); self.sound.play("angry")
-        else: self.set_state("drag")
+        self.interaction.handle_dragging()
     def toggle_sleep(self):
         if self.current_state == "sleep": self.wake_up()
         else: 
@@ -557,6 +533,7 @@ class PetEngine(QObject):
         QTimer.singleShot(1000, lambda: self.window.create_floating_text(f"+{money} 💰", "#FFCC00"))
         if self.stats.add_xp(xp): QTimer.singleShot(2500, self.trigger_levelup)
         self.check_quests("work", self.current_session_mins)
+        self.journal.log_event("work", details=f"{self.current_session_mins} хв")
         self.is_emotion_locked = False; self.set_state("idle")
     def stop_work_session(self):
         self.work_timer.stop(); self.window.update_timer_display(None)
@@ -618,6 +595,9 @@ class PetEngine(QObject):
         
     def open_settings(self):
         self.window_manager.open_settings()
+
+    def open_journal(self):
+        self.window_manager.open_journal()
         
     def open_minigame(self):
         self.window_manager.open_minigame()
@@ -639,12 +619,71 @@ class PetEngine(QObject):
             self.res.load_animation(chosen)
             
             self.set_state(chosen)
+            self.window.spawn_particles("🎵" if chosen == "sing" else "✨", 8, Settings.COLORS["particle_sing" if chosen == "sing" else "particle_dance"])
             
-            # Spawn particles based on type
-            if chosen == "sing":
-                self.window.spawn_particles("🎵", 8, Settings.COLORS["particle_sing"])
+            # Auto release after 5 seconds
+            QTimer.singleShot(5000, self.release_emotion)
+
+    def use_item_from_inventory(self, i_id):
+        if self.stats.use_item(i_id):
+            # 1. Play Items (Ball, Joystick)
+            if i_id in Settings.PLAY_ITEMS:
+                if not self.is_emotion_locked:
+                    self.res.load_animation("playing")
+                    self.set_state("playing")
+                    self.window.spawn_particles("🎾" if i_id == "ball" else "🎮", 8, "#FFFFFF")
+                    self.sound.play("happy")
+                    self.journal.log_event("play", details=i_id)
+                    
+                    # Add stats
+                    self.stats.data["happiness"] = min(100.0, self.stats.data["happiness"] + 15)
+                    self.stats.add_xp(Settings.PLAY_XP_REWARD)
+                    
+                    self.window.create_floating_text(f"+{Settings.PLAY_XP_REWARD} XP", Settings.COLORS["particle_xp"])
+                    
+                    QTimer.singleShot(4000, self.release_emotion)
+                    
+            # 2. Food
+            elif i_id in Settings.FOOD_STATS or i_id in Settings.SWEET_STATS or i_id in Settings.HEALTH_FOOD_STATS:
+                self.feed(i_id)
+                
+            # 3. Gifts / Other
+            elif i_id in Settings.GIFT_STATS:
+                val = Settings.GIFT_STATS[i_id]
+                self.stats.data["happiness"] = min(100.0, self.stats.data["happiness"] + val/5)
+                self.trigger_emotion("excited", 3000)
+                self.window.show_emote("happy")
+                self.window.create_floating_text(f"+{val // 5} ❤️", Settings.COLORS["particle_love"])
+                self.sound.play("happy")
+                
+            # Generic fallback
             else:
-                self.window.spawn_particles("✨", 8, Settings.COLORS["particle_dance"])
+                self.window.show_emote("happy")
+                self.sound.play("click")
+                
+            if self.window_manager.inventory_win:
+                self.window_manager.inventory_win.refresh()
+                
+    def feed(self, food_id):
+        # ... logic for feeding ...
+        # Simplified reusing existing logic or defining it here if missing
+        if not self.is_emotion_locked:
+            self.res.load_animation("eat")
+            self.set_state("eat")
+            self.sound.play("eat")
+            self.journal.log_event("eat", details=food_id)
+            QTimer.singleShot(3000, self.release_emotion)
+            
+        # Calc stats
+        if food_id in Settings.FOOD_STATS:
+            self.stats.data["hunger"] = min(100.0, self.stats.data["hunger"] + Settings.FOOD_STATS[food_id])
+        elif food_id in Settings.SWEET_STATS:
+            self.stats.data["happiness"] = min(100.0, self.stats.data["happiness"] + Settings.SWEET_STATS[food_id])
+            self.stats.data["hunger"] = min(100.0, self.stats.data["hunger"] + 5)
+            
+        self.window.create_floating_text("Yummy!", "#00FF00")
+            
+
 
             # Force loop by relying on state, no need to stop timer since set_state handles it unless locked
             # But we are not locking emotion here to allow toggle, we just set state.
@@ -973,3 +1012,9 @@ class PetEngine(QObject):
             # Position to the left of pet
             self.sys_widget.move(self.window.x() - 230, self.window.y() + 50)
             self.sys_widget.show()
+
+    def handle_click(self):
+        self.interaction.handle_click()
+
+    def handle_response(self, key):
+        self.interaction.handle_response(key)

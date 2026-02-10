@@ -64,6 +64,10 @@ class AchievementToast(QWidget):
         path = Settings.get_icon_path(icon_name)
         if os.path.exists(path):
             icon.setPixmap(QPixmap(path).scaled(45, 45, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+        else:
+            icon.setText("🏆")
+            icon.setStyleSheet("color: #FFD700; font-size: 30px; border: none; background: transparent;")
+            icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(icon)
         
         vbox = QVBoxLayout()
@@ -458,6 +462,7 @@ class PetWindow(QWidget):
             menu.addAction("🎒  Інвентар").triggered.connect(self.engine.open_inventory)
             menu.addAction("🛒  Магазин").triggered.connect(self.engine.open_shop)
             menu.addAction("🌻  Сад").triggered.connect(self.engine.open_garden)
+            menu.addAction("📖  Щоденник").triggered.connect(self.engine.open_journal)
             menu.addAction("🏆  Досягнення").triggered.connect(self.engine.open_achievements)
             menu.addAction("🗣️  Чат (AI)").triggered.connect(self.engine.open_chat)
             menu.addAction("📊  Системний Монітор").triggered.connect(self.engine.toggle_system_monitor)

@@ -32,7 +32,7 @@ class AchievementCard(QFrame):
                 img = pix.toImage()
                 img.convertTo(QImage.Format.Format_Grayscale8)
                 pix = QPixmap.fromImage(img)
-                pix.setDevicePixelRatio(2.0)
+                # pix.setDevicePixelRatio(2.0) # Removed to fix scaling issue
             icon_lbl.setPixmap(pix)
         else:
             icon_lbl.setText("🏆")
